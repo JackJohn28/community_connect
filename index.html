@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Connect</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Community Connect</h1>
+            <nav id="main-nav" style="display:none;">
+                <button class="menu-btn" onclick="toggleMenu()">Menu &#9776;</button>
+                <div id="nav-dropdown" class="dropdown-content">
+                    <a href="#" onclick="showSection('dashboard')">Dashboard</a>
+                    <a href="#" onclick="showSection('profile')">My Profile</a>
+                    <a href="#" onclick="logout()">Logout</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section id="auth-section">
+            <div class="card">
+                <h2 id="auth-title">Login</h2>
+                <div class="tabs">
+                    <button id="tab-login" class="active" onclick="setAuthMode('login')">Login</button>
+                    <button id="tab-reg" onclick="setAuthMode('reg')">Register</button>
+                </div>
+                <input type="text" id="username" placeholder="Username">
+                <div id="reg-fields" style="display:none;">
+                    <p>Select your role:</p>
+                    <select id="user-role">
+                        <option value="volunteer">Volunteer</option>
+                        <option value="caregiver">Caregiver</option>
+                        <option value="org">Organization</option>
+                    </select>
+                </div>
+                <button id="auth-submit" class="primary-btn" onclick="handleAuth()">Login</button>
+            </div>
+        </section>
+
+        <section id="dashboard" style="display:none;">
+            <h2 id="dash-title">Welcome</h2>
+            <div class="grid" id="action-buttons">
+                </div>
+        </section>
+
+        <section id="search" style="display:none;">
+            <h2>Available Resources</h2>
+            <div id="search-results"></div>
+            <button class="secondary-btn" onclick="showSection('dashboard')">Back to Dashboard</button>
+        </section>
+
+        <section id="profile" style="display:none;">
+            <div class="card">
+                <h2>My Profile</h2>
+                <div id="profile-inputs">
+                    </div>
+                <button class="primary-btn" onclick="saveProfile()">Save Changes</button>
+                <button class="secondary-btn" onclick="showSection('dashboard')">Cancel</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
