@@ -31,44 +31,44 @@ async function handleAuth() {
     const rawUsername = document.getElementById('username').value.trim().toLowerCase();
     const pass = document.getElementById('password').value.trim();
     
-    if (!rawUsername || !pass) return alert("Please enter both username and password");
+    // 1. STOPS the login if the password box is empty
+    if (!rawUsername || !pass) {
+        return alert("Please enter both username AND password");
+    }
     
-    // The Trick: Turn "Jack" into "jack@community.connect" behind the scenes
     const fakeEmail = `${rawUsername}@community.connect`;
-
     const isRegMode = document.getElementById('reg-fields').style.display === 'block';
 
     try {
         if (isRegMode) {
-            // 1. Create the account in Firebase Auth
+            // REGISTER: Creates the secure account in the "Authentication" tab
             const userCredential = await firebase.auth().createUserWithEmailAndPassword(fakeEmail, pass);
-            const user = userCredential.user;
-
-            // 2. Create the profile in Firestore using the UID
-            await db.collection("profiles").doc(user.uid).set({
+            
+            // Create the matching profile in the "Firestore" tab
+            await db.collection("profiles").doc(userCredential.user.uid).set({
                 username: rawUsername,
                 role: document.getElementById('user-role').value,
                 details: {}
             });
             
-            alert("Account created! Logging you in...");
+            alert("Account created successfully!");
             location.reload();
         } else {
-            // 1. Login using the fake email
+            // LOGIN: This line is what actually validates the password against Firebase Auth
             const userCredential = await firebase.auth().signInWithEmailAndPassword(fakeEmail, pass);
-            const user = userCredential.user;
-
-            // 2. Fetch the profile data
-            const doc = await db.collection("profiles").doc(user.uid).get();
-            currentUser = { uid: user.uid, ...doc.data() };
+            
+            // If the line above fails, the code below will never run
+            const doc = await db.collection("profiles").doc(userCredential.user.uid).get();
+            currentUser = { uid: userCredential.user.uid, ...doc.data() };
             
             sessionStorage.setItem('cc_user', JSON.stringify(currentUser));
             initApp();
         }
     } catch (error) {
-        // Friendly error mapping
-        if (error.code === 'auth/user-not-found') alert("Username not found.");
-        else if (error.code === 'auth/wrong-password') alert("Incorrect password.");
+        // This catches wrong passwords or missing users
+        console.error(error.code);
+        if (error.code === 'auth/wrong-password') alert("Incorrect password.");
+        else if (error.code === 'auth/user-not-found') alert("Username does not exist.");
         else alert(error.message);
     }
 }
