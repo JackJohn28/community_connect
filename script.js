@@ -62,9 +62,32 @@ async function handleAuth() {
             initApp();
         }
     } catch (error) {
-        alert("Login Error: " + error.message);
+        console.error("Firebase Auth Error:", error.code);
+        
+        const errorElement = document.getElementById('auth-error');
+        errorElement.style.display = 'block';
+
+        // Requirement ID # - Friendly Error Mapping [cite: 2026-02-28]
+        switch (error.code) {
+            case 'auth/invalid-credential':
+                errorElement.innerText = "Incorrect username or password. Please try again.";
+                break;
+            case 'auth/user-not-found':
+                errorElement.innerText = "That username doesn't exist yet. Want to register?";
+                break;
+            case 'auth/wrong-password':
+                errorElement.innerText = "The password you entered is incorrect.";
+                break;
+            case 'auth/weak-password':
+                errorElement.innerText = "Password is too short. Try at least 6 characters.";
+                break;
+            case 'auth/email-already-in-use':
+                errorElement.innerText = "That username is already taken.";
+                break;
+            default:
+                errorElement.innerText = "Oops! Something went wrong. Please check your connection.";
+        }
     }
-}
 
 // --- 4. NAVIGATION & DASHBOARD ---
 function initApp() {
@@ -155,3 +178,14 @@ async function saveProfile() {
 function toggleMenu() { document.getElementById('nav-dropdown').classList.toggle('show'); }
 function logout() { sessionStorage.clear(); location.reload(); }
 if (currentUser) initApp();
+
+// This clears the error message as soon as the user starts typing again
+document.getElementById('username').addEventListener('input', () => {
+    const errorElement = document.getElementById('auth-error');
+    if (errorElement) errorElement.style.display = 'none';
+});
+
+document.getElementById('password').addEventListener('input', () => {
+    const errorElement = document.getElementById('auth-error');
+    if (errorElement) errorElement.style.display = 'none';
+});
