@@ -36,18 +36,25 @@ function updateRoleFields() {
     const role = document.getElementById('user-role').value;
     const container = document.getElementById('dynamic-questions');
     
-    if (role === 'volunteer') {
+    // Clear previous fields
+    container.innerHTML = "";
+
+    if (role === 'volunteer' || role === 'caregiver') {
         container.innerHTML = `
-            <input type="text" id="reg-expertise" placeholder="Your Expertise (e.g. Nursing, Tech)">
-            <input type="text" id="reg-hours" placeholder="Available Hours per Week">`;
-    } else if (role === 'caregiver') {
-        container.innerHTML = `
-            <input type="text" id="reg-care-need" placeholder="Primary Care Need">
-            <textarea id="reg-story" placeholder="Briefly describe your situation"></textarea>`;
+            <div class="name-row" style="display: flex; gap: 10px;">
+                <input type="text" id="reg-fname" placeholder="First Name" style="flex: 1;">
+                <input type="text" id="reg-lname" placeholder="Last Name" style="flex: 1;">
+            </div>
+            ${role === 'volunteer' ? 
+                `<input type="text" id="reg-expertise" placeholder="Expertise (e.g. Nursing, Tech)">` : 
+                `<input type="text" id="reg-care-need" placeholder="Primary Care Need">`
+            }
+        `;
     } else if (role === 'org') {
         container.innerHTML = `
             <input type="text" id="reg-org-name" placeholder="Organization Name">
-            <input type="text" id="reg-website" placeholder="Website URL">`;
+            <input type="text" id="reg-website" placeholder="Website URL">
+        `;
     }
 }
 
@@ -63,28 +70,43 @@ async function handleAuth() {
 
     try {
         if (isRegMode) {
+            // 1. Create the account in Firebase Auth
             const userCredential = await auth.createUserWithEmailAndPassword(fakeEmail, pass);
+        
+            // --- START OF PART 2 ---
             const role = document.getElementById('user-role').value;
-            
-            // Gather personal details based on role
-            let personalData = {};
-            if (role === 'volunteer') {
-                personalData = { expertise: document.getElementById('reg-expertise').value, hours: document.getElementById('reg-hours').value };
-            } else if (role === 'caregiver') {
-                personalData = { need: document.getElementById('reg-care-need').value, story: document.getElementById('reg-story').value };
-            } else if (role === 'org') {
-                personalData = { orgName: document.getElementById('reg-org-name').value, website: document.getElementById('reg-website').value };
-            }
-
-            await db.collection("profiles").doc(userCredential.user.uid).set({
+            let profileData = {
                 username: rawUsername,
                 role: role,
-                details: personalData
-            });
+                details: {}
+            };
+
+            // If it's a person, get First/Last names
+            if (role === 'volunteer' || role === 'caregiver') {
+                profileData.firstName = document.getElementById('reg-fname').value.trim();
+                profileData.lastName = document.getElementById('reg-lname').value.trim();
             
+                if (role === 'volunteer') {
+                    profileData.details.expertise = document.getElementById('reg-expertise').value;
+                } else {
+                    profileData.details.need = document.getElementById('reg-care-need').value;
+                }
+            } 
+            // If it's an organization, get Org Name
+            else if (role === 'org') {
+                profileData.orgName = document.getElementById('reg-org-name').value.trim();
+                profileData.details.website = document.getElementById('reg-website').value;
+            }
+
+            // 2. Save the personalized data to Firestore
+            await db.collection("profiles").doc(userCredential.user.uid).set(profileData);
+            // --- END OF PART 2 ---
+
             alert("Account created!");
             location.reload();
         } else {
+
+
             const userCredential = await auth.signInWithEmailAndPassword(fakeEmail, pass);
             const doc = await db.collection("profiles").doc(userCredential.user.uid).get();
             
@@ -122,7 +144,15 @@ function showSection(id) {
 }
 
 function renderDashboard() {
-    document.getElementById('dash-title').innerText = `Hello, ${currentUser.username}!`;
+    let displayName = currentUser.username; // Fallback
+    
+    if (currentUser.role === 'org') {
+        displayName = currentUser.orgName || currentUser.username;
+    } else {
+        displayName = currentUser.firstName || currentUser.username;
+    }
+
+    document.getElementById('dash-title').innerText = `Hello, ${displayName}!`;
     const btnContainer = document.getElementById('action-buttons');
     btnContainer.innerHTML = "";
 
