@@ -27,37 +27,47 @@ function setAuthMode(mode) {
 }
 
 // Requirement ID # - Implementation for Username/Password [cite: 2026-02-28]
+
 async function handleAuth() {
     const rawUsername = document.getElementById('username').value.trim().toLowerCase();
     const pass = document.getElementById('password').value.trim();
     
-    // 1. STOPS the login if the password box is empty
+    // CRITICAL: This stops the function if the password field is empty
     if (!rawUsername || !pass) {
-        return alert("Please enter both username AND password");
+        alert("SECURITY ALERT: You must enter a password.");
+        return; 
     }
     
+    if (pass.length < 6) {
+        alert("Password must be at least 6 characters.");
+        return;
+    }
+
     const fakeEmail = `${rawUsername}@community.connect`;
     const isRegMode = document.getElementById('reg-fields').style.display === 'block';
 
     try {
         if (isRegMode) {
-            // REGISTER: Creates the secure account in the "Authentication" tab
+            console.log("Attempting to create Auth account...");
+            // This creates the entry in the AUTHENTICATION tab
             const userCredential = await firebase.auth().createUserWithEmailAndPassword(fakeEmail, pass);
             
-            // Create the matching profile in the "Firestore" tab
+            console.log("Auth success, creating Firestore profile...");
+            // This creates the entry in the FIRESTORE tab
             await db.collection("profiles").doc(userCredential.user.uid).set({
                 username: rawUsername,
                 role: document.getElementById('user-role').value,
-                details: {}
+                details: {},
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             
-            alert("Account created successfully!");
+            alert("Account created in the Cloud!");
             location.reload();
         } else {
-            // LOGIN: This line is what actually validates the password against Firebase Auth
+            console.log("Attempting Login...");
+            // This validates the password. If incorrect, it jumps straight to the 'catch' block
             const userCredential = await firebase.auth().signInWithEmailAndPassword(fakeEmail, pass);
             
-            // If the line above fails, the code below will never run
             const doc = await db.collection("profiles").doc(userCredential.user.uid).get();
             currentUser = { uid: userCredential.user.uid, ...doc.data() };
             
@@ -65,11 +75,8 @@ async function handleAuth() {
             initApp();
         }
     } catch (error) {
-        // This catches wrong passwords or missing users
-        console.error(error.code);
-        if (error.code === 'auth/wrong-password') alert("Incorrect password.");
-        else if (error.code === 'auth/user-not-found') alert("Username does not exist.");
-        else alert(error.message);
+        console.error("Firebase Error:", error.code, error.message);
+        alert("Error: " + error.message);
     }
 }
 
