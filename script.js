@@ -26,33 +26,50 @@ function setAuthMode(mode) {
     document.getElementById('auth-submit').innerText = isReg ? 'Register' : 'Login';
 }
 
+// Requirement ID # - Implementation for Username/Password [cite: 2026-02-28]
 async function handleAuth() {
-    const username = document.getElementById('username').value.toLowerCase().trim();
-    if (!username) return alert("Please enter a username");
+    const rawUsername = document.getElementById('username').value.trim().toLowerCase();
+    const pass = document.getElementById('password').value.trim();
+    
+    if (!rawUsername || !pass) return alert("Please enter both username and password");
+    
+    // The Trick: Turn "Jack" into "jack@community.connect" behind the scenes
+    const fakeEmail = `${rawUsername}@community.connect`;
 
     const isRegMode = document.getElementById('reg-fields').style.display === 'block';
-    const userRef = db.collection("profiles").doc(username);
 
     try {
-        const doc = await userRef.get();
-
         if (isRegMode) {
-            if (doc.exists) return alert("Username already exists!");
-            await userRef.set({
+            // 1. Create the account in Firebase Auth
+            const userCredential = await firebase.auth().createUserWithEmailAndPassword(fakeEmail, pass);
+            const user = userCredential.user;
+
+            // 2. Create the profile in Firestore using the UID
+            await db.collection("profiles").doc(user.uid).set({
+                username: rawUsername,
                 role: document.getElementById('user-role').value,
                 details: {}
             });
-            alert("Account created! Now please login.");
+            
+            alert("Account created! Logging you in...");
             location.reload();
         } else {
-            if (!doc.exists) return alert("User not found. Please register.");
-            currentUser = { name: username, ...doc.data() };
+            // 1. Login using the fake email
+            const userCredential = await firebase.auth().signInWithEmailAndPassword(fakeEmail, pass);
+            const user = userCredential.user;
+
+            // 2. Fetch the profile data
+            const doc = await db.collection("profiles").doc(user.uid).get();
+            currentUser = { uid: user.uid, ...doc.data() };
+            
             sessionStorage.setItem('cc_user', JSON.stringify(currentUser));
             initApp();
         }
-    } catch (e) {
-        alert("Database Error: Ensure Firestore is set to 'Test Mode' in the Firebase Console.");
-        console.error(e);
+    } catch (error) {
+        // Friendly error mapping
+        if (error.code === 'auth/user-not-found') alert("Username not found.");
+        else if (error.code === 'auth/wrong-password') alert("Incorrect password.");
+        else alert(error.message);
     }
 }
 
@@ -90,7 +107,10 @@ async function postResource() {
     const desc = prompt("Resource Description:");
     if (title && desc) {
         await db.collection("resources").add({
-            title, desc, org: currentUser.name,
+            title,
+            desc,
+            author: currentUser.username, // Using the saved username
+            authorId: currentUser.uid,    // Using the secure ID
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
         alert("Published!");
