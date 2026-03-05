@@ -1,12 +1,22 @@
-// --- INITIALIZATION ---
-let currentUser = JSON.parse(sessionStorage.getItem('cc_user')) || null;
-let profiles = JSON.parse(localStorage.getItem('cc_profiles')) || {};
-let resources = JSON.parse(localStorage.getItem('cc_resources')) || [
-    { title: "Weekend Sensory Play", desc: "A quiet environment for kids.", org: "City Park" },
-    { title: "Special Needs Tutoring", desc: "Math and Reading help.", org: "Study Helpers" }
-];
+// --- 1. FIREBASE CONFIGURATION (From your screenshot) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBJsogqYmqzRM_T9r03PvtPASEnE8Q2g3w",
+  authDomain: "community-connect-8e9e2.firebaseapp.com",
+  projectId: "community-connect-8e9e2",
+  storageBucket: "community-connect-8e9e2.firebasestorage.app",
+  messagingSenderId: "635552107936",
+  appId: "1:635552107936:web:d05d2f40accbf0e32ea8c5",
+  measurementId: "G-X71PEH5QS4"
+};
 
-// --- AUTH LOGIC ---
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// --- 2. GLOBAL STATE ---
+let currentUser = JSON.parse(sessionStorage.getItem('cc_user')) || null;
+
+// --- 3. AUTH LOGIC ---
 function setAuthMode(mode) {
     const isReg = mode === 'reg';
     document.getElementById('tab-login').classList.toggle('active', !isReg);
@@ -16,30 +26,37 @@ function setAuthMode(mode) {
     document.getElementById('auth-submit').innerText = isReg ? 'Register' : 'Login';
 }
 
-function handleAuth() {
+async function handleAuth() {
     const username = document.getElementById('username').value.toLowerCase().trim();
     if (!username) return alert("Please enter a username");
 
     const isRegMode = document.getElementById('reg-fields').style.display === 'block';
+    const userRef = db.collection("profiles").doc(username);
 
-    if (isRegMode) {
-        if (profiles[username]) return alert("Username already exists!");
-        profiles[username] = { 
-            role: document.getElementById('user-role').value,
-            details: {} 
-        };
-        saveData();
-        alert("Account created! You can now login.");
-        location.reload();
-    } else {
-        if (!profiles[username]) return alert("User not found. Please register.");
-        currentUser = { name: username, ...profiles[username] };
-        sessionStorage.setItem('cc_user', JSON.stringify(currentUser));
-        initApp();
+    try {
+        const doc = await userRef.get();
+
+        if (isRegMode) {
+            if (doc.exists) return alert("Username already exists!");
+            await userRef.set({
+                role: document.getElementById('user-role').value,
+                details: {}
+            });
+            alert("Account created! Now please login.");
+            location.reload();
+        } else {
+            if (!doc.exists) return alert("User not found. Please register.");
+            currentUser = { name: username, ...doc.data() };
+            sessionStorage.setItem('cc_user', JSON.stringify(currentUser));
+            initApp();
+        }
+    } catch (e) {
+        alert("Database Error: Ensure Firestore is set to 'Test Mode' in the Firebase Console.");
+        console.error(e);
     }
 }
 
-// --- NAVIGATION ---
+// --- 4. NAVIGATION & DASHBOARD ---
 function initApp() {
     document.getElementById('auth-section').style.display = 'none';
     document.getElementById('main-nav').style.display = 'block';
@@ -56,7 +73,6 @@ function showSection(id) {
     if (id === 'profile') renderProfileForm();
 }
 
-// --- DASHBOARD & ACTIONS ---
 function renderDashboard() {
     document.getElementById('dash-title').innerText = `Hello, ${currentUser.name}!`;
     const btnContainer = document.getElementById('action-buttons');
@@ -68,65 +84,61 @@ function renderDashboard() {
     btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse Listings</button>`;
 }
 
-function postResource() {
+// --- 5. CLOUD FUNCTIONS (RESOURCES) ---
+async function postResource() {
     const title = prompt("Resource Title:");
     const desc = prompt("Resource Description:");
     if (title && desc) {
-        resources.push({ title, desc, org: currentUser.name });
-        localStorage.setItem('cc_resources', JSON.stringify(resources));
-        alert("Listing Published!");
+        await db.collection("resources").add({
+            title, desc, org: currentUser.name,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert("Published!");
         showSection('search');
     }
 }
 
-function renderSearch() {
+async function renderSearch() {
     const results = document.getElementById('search-results');
+    results.innerHTML = "Loading...";
+    const snapshot = await db.collection("resources").orderBy("timestamp", "desc").get();
     results.innerHTML = "";
-    resources.forEach(res => {
+    snapshot.forEach(doc => {
+        const res = doc.data();
         results.innerHTML += `
             <div class="resource-card">
                 <h3>${res.title}</h3>
                 <p><b>From:</b> ${res.org}</p>
                 <p>${res.desc}</p>
-            </div>
-        `;
+            </div>`;
     });
 }
 
-// --- PROFILE ---
+// --- 6. PROFILE LOGIC ---
 function renderProfileForm() {
     const container = document.getElementById('profile-inputs');
-    const d = currentUser.details;
+    const d = currentUser.details || {};
     if (currentUser.role === 'caregiver') {
-        container.innerHTML = `
-            <input id="p-child" placeholder="Family Member Name" value="${d.child || ''}">
-            <textarea id="p-needs" placeholder="Primary Needs">${d.needs || ''}</textarea>
-        `;
+        container.innerHTML = `<input id="p-child" placeholder="Family Member Name" value="${d.child || ''}"><textarea id="p-needs" placeholder="Needs">${d.needs || ''}</textarea>`;
     } else {
-        container.innerHTML = `
-            <input id="p-skills" placeholder="My Skills" value="${d.skills || ''}">
-            <textarea id="p-avail" placeholder="My Availability">${d.avail || ''}</textarea>
-        `;
+        container.innerHTML = `<input id="p-skills" placeholder="Skills" value="${d.skills || ''}"><textarea id="p-avail" placeholder="Availability">${d.avail || ''}</textarea>`;
     }
 }
 
-function saveProfile() {
-    const d = profiles[currentUser.name].details;
+async function saveProfile() {
+    const userRef = db.collection("profiles").doc(currentUser.name);
+    let details = {};
     if (currentUser.role === 'caregiver') {
-        d.child = document.getElementById('p-child').value;
-        d.needs = document.getElementById('p-needs').value;
+        details = { child: document.getElementById('p-child').value, needs: document.getElementById('p-needs').value };
     } else {
-        d.skills = document.getElementById('p-skills').value;
-        d.avail = document.getElementById('p-avail').value;
+        details = { skills: document.getElementById('p-skills').value, avail: document.getElementById('p-avail').value };
     }
-    saveData();
-    alert("Profile Updated!");
+    await userRef.update({ details });
+    currentUser.details = details;
+    sessionStorage.setItem('cc_user', JSON.stringify(currentUser));
+    alert("Cloud Profile Saved!");
 }
 
-// --- UTILS ---
 function toggleMenu() { document.getElementById('nav-dropdown').classList.toggle('show'); }
-function saveData() { localStorage.setItem('cc_profiles', JSON.stringify(profiles)); }
 function logout() { sessionStorage.clear(); location.reload(); }
-
-// Keep user logged in on refresh
 if (currentUser) initApp();
