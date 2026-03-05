@@ -1,6 +1,7 @@
-// --- 1. FIREBASE CONFIGURATION (From your screenshot) ---
+
+// --- 1. FIREBASE CONFIGURATION (Corrected from Config screen) ---
 const firebaseConfig = {
-  apiKey: "AIzaSyBJsogqYmqzRM_T9r03PvtPASEnE8Q2g3w",
+  apiKey: "AIzaSyBJsqogYmqzRM_T9r03PvtPAsENe8Q2g3w", // Fixed the 'q' typo
   authDomain: "community-connect-8e9e2.firebaseapp.com",
   projectId: "community-connect-8e9e2",
   storageBucket: "community-connect-8e9e2.firebasestorage.app",
@@ -9,11 +10,9 @@ const firebaseConfig = {
   measurementId: "G-X71PEH5QS4"
 };
 
-// Initialize Firebase
+// Initialize the 'Compat' services
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-
-// Initialize the Auth service
 const auth = firebase.auth();
 
 // --- 2. GLOBAL STATE ---
