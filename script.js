@@ -21,11 +21,17 @@ let currentUser = JSON.parse(sessionStorage.getItem('cc_user')) || null;
 // --- 3. AUTH LOGIC ---
 function setAuthMode(mode) {
     const isReg = mode === 'reg';
+    document.getElementById('auth-title').innerText = isReg ? 'Register' : 'Login';
+    document.getElementById('auth-submit').innerText = isReg ? 'Register' : 'Login';
+    document.getElementById('reg-fields').style.display = isReg ? 'block' : 'none';
+    
+    // Switch active tab styling
     document.getElementById('tab-login').classList.toggle('active', !isReg);
     document.getElementById('tab-reg').classList.toggle('active', isReg);
-    document.getElementById('reg-fields').style.display = isReg ? 'block' : 'none';
-    document.getElementById('auth-title').innerText = isReg ? 'Create Account' : 'Login';
-    document.getElementById('auth-submit').innerText = isReg ? 'Register' : 'Login';
+    
+    // Clear any error messages when switching modes
+    const errorElement = document.getElementById('auth-error');
+    if (errorElement) errorElement.style.display = 'none';
 }
 
 // Requirement ID # - Implementation for Username/Password [cite: 2026-02-28]
