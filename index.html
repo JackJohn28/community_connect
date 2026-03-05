@@ -31,17 +31,19 @@
                 </div>
 
                 <input type="text" id="username" placeholder="Username">
-		<input type="password" id="password" placeholder="Password">
+                <input type="password" id="password" placeholder="Password">
+                
                 <div id="reg-fields" style="display:none;">
                     <p>Select your role:</p>
-                    <select id="user-role">
+                    <select id="user-role" onchange="updateRoleFields()">
                         <option value="volunteer">Volunteer</option>
                         <option value="caregiver">Caregiver</option>
                         <option value="org">Organization</option>
                     </select>
+                    <div id="dynamic-questions" style="margin-top: 15px;"></div>
                 </div>
-		<p id="auth-error" style="color: #ff4d4d; font-size: 0.9em; margin-bottom: 10px; display: none;"></p>
 
+                <p id="auth-error" style="color: #ff4d4d; font-size: 0.9em; margin-bottom: 10px; display: none;"></p>
                 <button id="auth-submit" class="primary-btn" onclick="handleAuth()">Login</button>
             </div>
         </section>
@@ -70,8 +72,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
     <script src="script.js"></script>
-
 </body>
 </html>
