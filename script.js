@@ -94,7 +94,7 @@ async function handleAuth() {
                 errorElement.innerText = "Oops! Something went wrong. Please check your connection.";
         }
     }
-
+}
 // --- 4. NAVIGATION & DASHBOARD ---
 function initApp() {
     document.getElementById('auth-section').style.display = 'none';
