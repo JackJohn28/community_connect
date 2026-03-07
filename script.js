@@ -156,7 +156,6 @@ function renderProfile() {
 
     let roleSpecificHTML = "";
 
-    // Requirement ID - 2 & 3: Handle role-specific data display
     if (currentUser.role === 'org') {
         roleSpecificHTML = `
             <p><strong>Organization:</strong> ${currentUser.orgName || 'Not Set'}</p>
@@ -169,8 +168,24 @@ function renderProfile() {
         `;
     } else if (currentUser.role === 'caregiver') {
         roleSpecificHTML = `
-            <p><strong>Caregiver Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
-            <p><strong>Primary Care Need:</strong> ${currentUser.details?.need || 'None listed'}</p>
+            <div id="caregiver-view-mode">
+                <p><strong>First Name:</strong> ${currentUser.firstName}</p>
+                <p><strong>Last Name:</strong> ${currentUser.lastName}</p>
+                <p><strong>Primary Care Need:</strong> ${currentUser.details?.need || 'None listed'}</p>
+                <button class="secondary-btn" onclick="toggleProfileEdit(true)" style="margin-top:10px;">Edit Profile Details</button>
+            </div>
+            <div id="caregiver-edit-mode" style="display:none;">
+                <label>First Name:</label>
+                <input type="text" id="edit-fname" value="${currentUser.firstName}">
+                <label>Last Name:</label>
+                <input type="text" id="edit-lname" value="${currentUser.lastName}">
+                <label>Primary Care Need:</label>
+                <textarea id="edit-need">${currentUser.details?.need || ''}</textarea>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button class="primary-btn" onclick="saveProfile()">Save Changes</button>
+                    <button class="secondary-btn" onclick="toggleProfileEdit(false)">Cancel</button>
+                </div>
+            </div>
         `;
     }
 
@@ -345,4 +360,39 @@ function logout() {
         document.getElementById('username').value = "";
         document.getElementById('password').value = "";
     });
+}
+
+function toggleProfileEdit(isEditing) {
+    document.getElementById('caregiver-view-mode').style.display = isEditing ? 'none' : 'block';
+    document.getElementById('caregiver-edit-mode').style.display = isEditing ? 'block' : 'none';
+}
+
+async function saveProfile() {
+    const newFname = document.getElementById('edit-fname').value.trim();
+    const newLname = document.getElementById('edit-lname').value.trim();
+    const newNeed = document.getElementById('edit-need').value.trim();
+
+    if (!newFname || !newLname) return alert("Names cannot be empty");
+
+    try {
+        const userRef = db.collection("profiles").doc(currentUser.uid);
+        
+        // Update Firebase
+        await userRef.update({
+            firstName: newFname,
+            lastName: newLname,
+            "details.need": newNeed
+        });
+
+        // Update local state so the UI reflects changes immediately
+        currentUser.firstName = newFname;
+        currentUser.lastName = newLname;
+        currentUser.details.need = newNeed;
+
+        alert("Profile updated successfully!");
+        renderProfile(); // Refresh the view
+    } catch (e) {
+        console.error("Error updating profile:", e);
+        alert("Failed to update profile.");
+    }
 }
