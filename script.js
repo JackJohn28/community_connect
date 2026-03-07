@@ -48,21 +48,31 @@ function updateRoleFields() {
     const role = document.getElementById('user-role').value;
     const container = document.getElementById('dynamic-questions');
     container.innerHTML = "";
+
     if (role === 'volunteer' || role === 'caregiver') {
         container.innerHTML = `
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <input type="text" id="reg-fname" placeholder="First Name" style="flex: 1;">
                 <input type="text" id="reg-lname" placeholder="Last Name" style="flex: 1;">
-            </div>`;
+            </div>
+            ${role === 'volunteer' ? 
+                `<input type="text" id="reg-expertise" placeholder="Expertise (e.g. Nursing, Tech)">` : 
+                `<input type="text" id="reg-care-need" placeholder="Primary Care Need">`
+            }`;
     } else if (role === 'org') {
-        container.innerHTML = `<input type="text" id="reg-org-name" placeholder="Organization Name">`;
+        container.innerHTML = `
+            <input type="text" id="reg-org-name" placeholder="Organization Name">
+            <input type="text" id="reg-website" placeholder="Website URL">`;
     }
 }
 
 async function handleAuth() {
     const userIn = document.getElementById('username').value.trim().toLowerCase();
     const pass = document.getElementById('password').value.trim();
+    const errorEl = document.getElementById('auth-error');
     if (!userIn || !pass) return alert("Fill all fields");
+    
+    errorEl.style.display = 'none';
     const fakeEmail = `${userIn}@community.connect`;
     const isRegMode = document.getElementById('reg-fields').style.display === 'block';
 
@@ -70,17 +80,25 @@ async function handleAuth() {
         if (isRegMode) {
             const userCred = await auth.createUserWithEmailAndPassword(fakeEmail, pass);
             const role = document.getElementById('user-role').value;
-            let profileData = { username: userIn, role: role };
-            if (role === 'org') profileData.orgName = document.getElementById('reg-org-name').value;
-            else {
+            let profileData = { username: userIn, role: role, details: {} };
+
+            if (role === 'org') {
+                profileData.orgName = document.getElementById('reg-org-name').value;
+                profileData.details.website = document.getElementById('reg-website').value;
+            } else {
                 profileData.firstName = document.getElementById('reg-fname').value;
                 profileData.lastName = document.getElementById('reg-lname').value;
+                if (role === 'volunteer') profileData.details.expertise = document.getElementById('reg-expertise').value;
+                else profileData.details.need = document.getElementById('reg-care-need').value;
             }
             await db.collection("profiles").doc(userCred.user.uid).set(profileData);
         } else {
             await auth.signInWithEmailAndPassword(fakeEmail, pass);
         }
-    } catch (e) { alert(e.message); }
+    } catch (e) { 
+        errorEl.innerText = e.message;
+        errorEl.style.display = 'block';
+    }
 }
 
 // --- 5. NAVIGATION ---
@@ -95,6 +113,7 @@ function showSection(id) {
     document.getElementById(id).style.display = 'block';
     if (id === 'dashboard') renderDashboard();
     if (id === 'search') renderSearch();
+    if (id === 'profile') renderProfile();
 }
 
 function renderDashboard() {
@@ -103,6 +122,15 @@ function renderDashboard() {
     const btnContainer = document.getElementById('action-buttons');
     btnContainer.innerHTML = (currentUser.role === 'org') ? `<button class="primary-btn" onclick="showSection('create-listing')">+ Create New Listing</button>` : "";
     btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse All Listings</button>`;
+}
+
+function renderProfile() {
+    const container = document.getElementById('profile-display');
+    container.innerHTML = `
+        <p><b>Username:</b> ${currentUser.username}</p>
+        <p><b>Role:</b> ${currentUser.role}</p>
+        ${currentUser.orgName ? `<p><b>Organization:</b> ${currentUser.orgName}</p>` : `<p><b>Name:</b> ${currentUser.firstName} ${currentUser.lastName}</p>`}
+    `;
 }
 
 // --- 6. MULTI-ROLE LISTING LOGIC ---
