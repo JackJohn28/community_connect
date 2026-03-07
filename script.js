@@ -15,6 +15,7 @@ const auth = firebase.auth();
 
 // --- 2. GLOBAL STATE ---
 let currentUser = null;
+let needsVolunteers = false;
 
 // --- 3. PERSISTENCE OBSERVER ---
 auth.onAuthStateChanged(async (user) => {
@@ -32,7 +33,7 @@ auth.onAuthStateChanged(async (user) => {
     }
 });
 
-// --- 4. AUTH & REGISTRATION ---
+// --- 4. AUTH LOGIC ---
 function setAuthMode(mode) {
     const isReg = mode === 'reg';
     document.getElementById('auth-title').innerText = isReg ? 'Register' : 'Login';
@@ -76,8 +77,11 @@ async function handleAuth() {
             if (role === 'volunteer' || role === 'caregiver') {
                 profileData.firstName = document.getElementById('reg-fname').value;
                 profileData.lastName = document.getElementById('reg-lname').value;
+                if (role === 'volunteer') profileData.details.expertise = document.getElementById('reg-expertise').value;
+                else profileData.details.need = document.getElementById('reg-care-need').value;
             } else {
                 profileData.orgName = document.getElementById('reg-org-name').value;
+                profileData.details.website = document.getElementById('reg-website').value;
             }
             await db.collection("profiles").doc(userCredential.user.uid).set(profileData);
         } else {
@@ -86,7 +90,7 @@ async function handleAuth() {
     } catch (e) { alert(e.message); }
 }
 
-// --- 5. DASHBOARD & NAVIGATION ---
+// --- 5. NAVIGATION ---
 function initApp() {
     document.getElementById('auth-section').style.display = 'none';
     document.getElementById('main-nav').style.display = 'block';
@@ -109,32 +113,45 @@ function renderDashboard() {
 }
 
 // --- 6. LISTINGS & SIGNUPS ---
-function toggleVolunteerNeeded() {
-    const type = document.getElementById('post-type').value;
-    document.getElementById('volunteer-details').style.display = (type === 'volunteer_job') ? 'block' : 'none';
+function toggleVolunteerFields() {
+    const volDiv = document.getElementById('volunteer-details');
+    needsVolunteers = !needsVolunteers;
+    volDiv.style.display = needsVolunteers ? 'block' : 'none';
 }
 
 async function submitListing() {
-    const title = document.getElementById('post-title').value;
-    const desc = document.getElementById('post-desc').value;
+    const title = document.getElementById('post-title').value.trim();
+    const desc = document.getElementById('post-desc').value.trim();
     const type = document.getElementById('post-type').value;
+
+    if (!title || !desc) return alert("Please fill out Title and Description");
 
     const data = {
         title, desc, type, 
         author: currentUser.orgName || currentUser.username,
         authorId: currentUser.uid,
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        volunteers: [] // Req 501
+        volunteers: [] 
     };
     
-    if (type === 'volunteer_job') {
+    if (needsVolunteers) {
+        data.isVolunteerJob = true;
         data.skill = document.getElementById('post-skill').value;
+        data.slots = document.getElementById('post-slots').value;
         data.urgency = document.getElementById('post-urgency').value;
+    } else {
+        data.isVolunteerJob = false;
     }
 
-    await db.collection("resources").add(data);
-    alert("Published!");
-    showSection('search');
+    try {
+        await db.collection("resources").add(data);
+        alert("Published!");
+        document.getElementById('post-title').value = "";
+        document.getElementById('post-desc').value = "";
+        document.getElementById('volunteer-details').style.display = 'none';
+        needsVolunteers = false;
+        showSection('search');
+    } catch (e) { alert("Error: " + e.message); }
 }
 
 async function renderSearch() {
@@ -145,16 +162,21 @@ async function renderSearch() {
     
     snapshot.forEach(doc => {
         const res = doc.data();
-        const isVolJob = res.type === 'volunteer_job';
         const alreadySigned = res.volunteers && res.volunteers.includes(currentUser.uid);
+        const urgencyClass = res.urgency ? `urgency-${res.urgency}` : "";
 
         results.innerHTML += `
             <div class="resource-card">
-                <span class="tag ${res.type}">${res.type}</span>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="tag ${res.type}">${res.type}</span>
+                    ${res.urgency ? `<span class="urgency-tag ${urgencyClass}">${res.urgency.toUpperCase()}</span>` : ""}
+                </div>
                 <h3>${res.title}</h3>
                 <p>${res.desc}</p>
+                ${res.skill ? `<p><b>Needed Skill:</b> ${res.skill}</p>` : ""}
                 <p><small>Posted by: ${res.author}</small></p>
-                ${isVolJob && currentUser.role === 'volunteer' ? 
+                
+                ${res.isVolunteerJob && currentUser.role === 'volunteer' ? 
                     `<button class="primary-btn" onclick="signUp('${doc.id}')" ${alreadySigned ? 'disabled' : ''}>
                         ${alreadySigned ? 'Signed Up ✓' : 'Sign Up to Volunteer'}
                     </button>` : ''}
@@ -164,13 +186,12 @@ async function renderSearch() {
 
 async function signUp(listingId) {
     if (currentUser.role !== 'volunteer') return alert("Only volunteers can sign up!");
-    
     try {
         await db.collection("resources").doc(listingId).update({
             volunteers: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
         });
         alert("Success! You are signed up.");
-        renderSearch(); // Refresh the list
+        renderSearch();
     } catch (e) { alert("Error signing up."); }
 }
 
