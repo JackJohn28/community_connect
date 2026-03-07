@@ -78,16 +78,19 @@
 
         <section id="search" style="display:none;">
             <h2>Browse Listings</h2>
+    
+            <div class="filter-container" style="margin-bottom: 20px;">
+                <label for="category-filter">Filter by Category:</label>
+                <select id="category-filter" onchange="renderSearch()">
+                    <option value="all">All Categories</option>
+                    <option value="service">Service</option>
+                    <option value="event">Event</option>
+                    <option value="resource">Resource</option>
+                </select>
+            </div>
+
             <div id="search-results"></div>
             <button class="secondary-btn" onclick="showSection('dashboard')">Back to Dashboard</button>
-        </section>
-
-        <section id="profile" style="display:none;">
-            <div class="card">
-                <h2>My Profile</h2>
-                <div id="profile-display"></div>
-                <button class="primary-btn" onclick="showSection('dashboard')">Back</button>
-            </div>
         </section>
     </main>
 

@@ -195,47 +195,69 @@ async function submitListing() {
 
 async function renderSearch() {
     const results = document.getElementById('search-results');
+    const filterValue = document.getElementById('category-filter').value;
+    
     results.innerHTML = "Loading...";
-    const snapshot = await db.collection("resources").orderBy("timestamp", "desc").get();
-    results.innerHTML = "";
+    
+    try {
+        let query = db.collection("resources");
 
-    snapshot.forEach(doc => {
-        const res = doc.data();
-        let rolesHTML = "";
-
-        if (res.positions && res.positions.length > 0) {
-            res.positions.forEach((pos, idx) => {
-                const filled = pos.volunteers ? pos.volunteers.length : 0;
-                const isFull = filled >= pos.slots;
-                const userSigned = pos.volunteers && pos.volunteers.includes(currentUser.uid);
-
-                rolesHTML += `
-                    <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span></h4>
-                                <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
-                                <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
-                            </div>
-                            ${currentUser.role === 'volunteer' ? `
-                                <button class="primary-btn" style="width:auto; padding:5px 10px;" 
-                                    onclick="signUpForRole('${doc.id}', ${idx})" ${isFull || userSigned ? 'disabled' : ''}>
-                                    ${userSigned ? 'Joined' : (isFull ? 'Full' : 'Join')}
-                                </button>` : ''}
-                        </div>
-                    </div>`;
-            });
+        // Apply filter if "all" is NOT selected
+        if (filterValue !== 'all') {
+            query = query.where("type", "==", filterValue);
         }
 
-        results.innerHTML += `
-            <div class="resource-card">
-                <span class="tag ${res.type}">${res.type}</span>
-                <h3>${res.title}</h3>
-                <p>${res.desc}</p>
-                ${rolesHTML}
-                <p><small>By: ${res.author}</small></p>
-            </div>`;
-    });
+        // Sort by timestamp (Note: Firestore requires an index for this combined query)
+        const snapshot = await query.orderBy("timestamp", "desc").get();
+        
+        results.innerHTML = "";
+
+        if (snapshot.empty) {
+            results.innerHTML = `<p style="text-align:center; color:#666;">No ${filterValue}s found.</p>`;
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const res = doc.data();
+            let rolesHTML = "";
+
+            if (res.positions && res.positions.length > 0) {
+                res.positions.forEach((pos, idx) => {
+                    const filled = (pos.volunteers || []).length;
+                    const isFull = filled >= pos.slots;
+                    const userSigned = (pos.volunteers || []).includes(currentUser.uid);
+
+                    rolesHTML += `
+                        <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span></h4>
+                                    <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
+                                    <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
+                                </div>
+                                ${currentUser.role === 'volunteer' ? `
+                                    <button class="primary-btn" style="width:auto; padding:5px 10px;" 
+                                        onclick="signUpForRole('${doc.id}', ${idx})" ${isFull || userSigned ? 'disabled' : ''}>
+                                        ${userSigned ? 'Joined' : (isFull ? 'Full' : 'Join')}
+                                    </button>` : ''}
+                            </div>
+                        </div>`;
+                });
+            }
+
+            results.innerHTML += `
+                <div class="resource-card">
+                    <span class="tag ${res.type}">${res.type}</span>
+                    <h3>${res.title}</h3>
+                    <p>${res.desc}</p>
+                    ${rolesHTML}
+                    <p><small>By: ${res.author}</small></p>
+                </div>`;
+        });
+    } catch (e) {
+        console.error("Error filtering:", e);
+        results.innerHTML = "Error loading listings. Make sure your Firestore indexes are set.";
+    }
 }
 
 async function signUpForRole(docId, roleIdx) {
