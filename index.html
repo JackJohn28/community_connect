@@ -59,6 +59,31 @@
             <button class="secondary-btn" onclick="showSection('dashboard')">Back to Dashboard</button>
         </section>
 
+        <section id="create-listing" style="display:none;">
+            <div class="card">
+                <h2>Create New Listing</h2>
+                <label>Type of Listing:</label>
+                <select id="post-type" onchange="toggleVolunteerNeeded()">
+                    <option value="resource">General Resource / Service</option>
+                    <option value="event">Social Event</option>
+                    <option value="volunteer_job">Volunteer Opportunity</option>
+                </select>
+
+                <input type="text" id="post-title" placeholder="Event or Resource Name">
+                <textarea id="post-desc" placeholder="Full Description" rows="4"></textarea>
+
+                <div id="volunteer-details" style="display:none; border-top: 1px solid #ddd; padding-top: 10px;">
+                    <h3>Volunteer Requirements</h3>
+                    <input type="text" id="post-skill" placeholder="Required Skill (e.g., CPR)">
+                    <input type="number" id="post-slots" placeholder="Number of Volunteers Needed">
+                    <input type="text" id="post-urgency" placeholder="Urgency (Low, Medium, High)">
+                </div>
+
+                <button class="primary-btn" onclick="submitListing()">Publish Listing</button>
+                <button class="secondary-btn" onclick="showSection('dashboard')">Cancel</button>
+            </div>
+        </section>
+
         <section id="profile" style="display:none;">
             <div class="card">
                 <h2>My Profile</h2>

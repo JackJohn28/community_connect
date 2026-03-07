@@ -1,4 +1,4 @@
-// --- 1. FIREBASE CONFIGURATION ---
+// --- 1. FIREBASE CONFIG ---
 const firebaseConfig = {
     apiKey: "AIzaSyBJsqogYmqzRM_T9r03PvtPAsENe8Q2g3w",
     authDomain: "community-connect-8e9e2.firebaseapp.com",
@@ -14,119 +14,79 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 // --- 2. GLOBAL STATE ---
-let currentUser = JSON.parse(sessionStorage.getItem('cc_user')) || null;
+let currentUser = null;
 
-// --- 3. AUTH & DYNAMIC UI LOGIC ---
+// --- 3. PERSISTENCE OBSERVER ---
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        const doc = await db.collection("profiles").doc(user.uid).get();
+        if (doc.exists) {
+            currentUser = { uid: user.uid, ...doc.data() };
+            initApp();
+        }
+    } else {
+        currentUser = null;
+        document.getElementById('auth-section').style.display = 'block';
+        document.getElementById('main-nav').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'none';
+    }
+});
+
+// --- 4. AUTH & REGISTRATION ---
 function setAuthMode(mode) {
     const isReg = mode === 'reg';
     document.getElementById('auth-title').innerText = isReg ? 'Register' : 'Login';
     document.getElementById('auth-submit').innerText = isReg ? 'Register' : 'Login';
     document.getElementById('reg-fields').style.display = isReg ? 'block' : 'none';
-    
     document.getElementById('tab-login').classList.toggle('active', !isReg);
     document.getElementById('tab-reg').classList.toggle('active', isReg);
-    
     if (isReg) updateRoleFields();
-    
-    const errorElement = document.getElementById('auth-error');
-    if (errorElement) errorElement.style.display = 'none';
 }
 
 function updateRoleFields() {
     const role = document.getElementById('user-role').value;
     const container = document.getElementById('dynamic-questions');
-    
-    // Clear previous fields
     container.innerHTML = "";
 
     if (role === 'volunteer' || role === 'caregiver') {
         container.innerHTML = `
-            <div class="name-row" style="display: flex; gap: 10px;">
+            <div class="name-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <input type="text" id="reg-fname" placeholder="First Name" style="flex: 1;">
                 <input type="text" id="reg-lname" placeholder="Last Name" style="flex: 1;">
             </div>
-            ${role === 'volunteer' ? 
-                `<input type="text" id="reg-expertise" placeholder="Expertise (e.g. Nursing, Tech)">` : 
-                `<input type="text" id="reg-care-need" placeholder="Primary Care Need">`
-            }
-        `;
+            ${role === 'volunteer' ? `<input type="text" id="reg-expertise" placeholder="Expertise">` : `<input type="text" id="reg-care-need" placeholder="Primary Need">`}`;
     } else if (role === 'org') {
-        container.innerHTML = `
-            <input type="text" id="reg-org-name" placeholder="Organization Name">
-            <input type="text" id="reg-website" placeholder="Website URL">
-        `;
+        container.innerHTML = `<input type="text" id="reg-org-name" placeholder="Org Name"><input type="text" id="reg-website" placeholder="Website">`;
     }
 }
 
 async function handleAuth() {
-    const rawUsername = document.getElementById('username').value.trim().toLowerCase();
+    const userIn = document.getElementById('username').value.trim().toLowerCase();
     const pass = document.getElementById('password').value.trim();
-    const errorElement = document.getElementById('auth-error');
-    
-    if (!rawUsername || !pass) return alert("Please enter both username and password");
-    
-    const fakeEmail = `${rawUsername}@community.connect`;
+    if (!userIn || !pass) return alert("Fill all fields");
+    const fakeEmail = `${userIn}@community.connect`;
     const isRegMode = document.getElementById('reg-fields').style.display === 'block';
 
     try {
         if (isRegMode) {
-            // 1. Create the account in Firebase Auth
             const userCredential = await auth.createUserWithEmailAndPassword(fakeEmail, pass);
-        
-            // --- START OF PART 2 ---
             const role = document.getElementById('user-role').value;
-            let profileData = {
-                username: rawUsername,
-                role: role,
-                details: {}
-            };
+            let profileData = { username: userIn, role: role, details: {} };
 
-            // If it's a person, get First/Last names
             if (role === 'volunteer' || role === 'caregiver') {
-                profileData.firstName = document.getElementById('reg-fname').value.trim();
-                profileData.lastName = document.getElementById('reg-lname').value.trim();
-            
-                if (role === 'volunteer') {
-                    profileData.details.expertise = document.getElementById('reg-expertise').value;
-                } else {
-                    profileData.details.need = document.getElementById('reg-care-need').value;
-                }
-            } 
-            // If it's an organization, get Org Name
-            else if (role === 'org') {
-                profileData.orgName = document.getElementById('reg-org-name').value.trim();
-                profileData.details.website = document.getElementById('reg-website').value;
+                profileData.firstName = document.getElementById('reg-fname').value;
+                profileData.lastName = document.getElementById('reg-lname').value;
+            } else {
+                profileData.orgName = document.getElementById('reg-org-name').value;
             }
-
-            // 2. Save the personalized data to Firestore
             await db.collection("profiles").doc(userCredential.user.uid).set(profileData);
-            // --- END OF PART 2 ---
-
-            alert("Account created!");
-            location.reload();
         } else {
-
-
-            const userCredential = await auth.signInWithEmailAndPassword(fakeEmail, pass);
-            const doc = await db.collection("profiles").doc(userCredential.user.uid).get();
-            
-            currentUser = { uid: userCredential.user.uid, ...doc.data() };
-            sessionStorage.setItem('cc_user', JSON.stringify(currentUser));
-            initApp();
+            await auth.signInWithEmailAndPassword(fakeEmail, pass);
         }
-    } catch (error) {
-        errorElement.style.display = 'block';
-        if (error.code === 'auth/invalid-credential') {
-            errorElement.innerText = "Incorrect username or password.";
-        } else if (error.code === 'auth/email-already-in-use') {
-            errorElement.innerText = "Username already taken.";
-        } else {
-            errorElement.innerText = error.message;
-        }
-    }
+    } catch (e) { alert(e.message); }
 }
 
-// --- 4. NAVIGATION & DASHBOARD ---
+// --- 5. DASHBOARD & NAVIGATION ---
 function initApp() {
     document.getElementById('auth-section').style.display = 'none';
     document.getElementById('main-nav').style.display = 'block';
@@ -136,47 +96,45 @@ function initApp() {
 function showSection(id) {
     document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
     document.getElementById(id).style.display = 'block';
-    document.getElementById('nav-dropdown').classList.remove('show');
-
     if (id === 'dashboard') renderDashboard();
     if (id === 'search') renderSearch();
-    if (id === 'profile') renderProfileForm();
 }
 
 function renderDashboard() {
-    let displayName = currentUser.username; // Fallback
-    
-    if (currentUser.role === 'org') {
-        displayName = currentUser.orgName || currentUser.username;
-    } else {
-        displayName = currentUser.firstName || currentUser.username;
-    }
-
-    document.getElementById('dash-title').innerText = `Hello, ${displayName}!`;
+    const name = currentUser.firstName || currentUser.orgName || currentUser.username;
+    document.getElementById('dash-title').innerText = `Hello, ${name}!`;
     const btnContainer = document.getElementById('action-buttons');
-    btnContainer.innerHTML = "";
-
-    if (currentUser.role === 'org') {
-        btnContainer.innerHTML = `<button class="primary-btn" onclick="postResource()">+ Create New Listing</button>`;
-    }
+    btnContainer.innerHTML = (currentUser.role === 'org') ? `<button class="primary-btn" onclick="showSection('create-listing')">+ Create Listing</button>` : "";
     btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse Listings</button>`;
 }
 
-// --- 5. CLOUD FUNCTIONS ---
-async function postResource() {
-    const title = prompt("Resource Title:");
-    const desc = prompt("Resource Description:");
-    if (title && desc) {
-        await db.collection("resources").add({
-            title,
-            desc,
-            author: currentUser.username,
-            authorId: currentUser.uid,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        alert("Published!");
-        showSection('search');
+// --- 6. LISTINGS & SIGNUPS ---
+function toggleVolunteerNeeded() {
+    const type = document.getElementById('post-type').value;
+    document.getElementById('volunteer-details').style.display = (type === 'volunteer_job') ? 'block' : 'none';
+}
+
+async function submitListing() {
+    const title = document.getElementById('post-title').value;
+    const desc = document.getElementById('post-desc').value;
+    const type = document.getElementById('post-type').value;
+
+    const data = {
+        title, desc, type, 
+        author: currentUser.orgName || currentUser.username,
+        authorId: currentUser.uid,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        volunteers: [] // Req 501
+    };
+    
+    if (type === 'volunteer_job') {
+        data.skill = document.getElementById('post-skill').value;
+        data.urgency = document.getElementById('post-urgency').value;
     }
+
+    await db.collection("resources").add(data);
+    alert("Published!");
+    showSection('search');
 }
 
 async function renderSearch() {
@@ -184,58 +142,37 @@ async function renderSearch() {
     results.innerHTML = "Loading...";
     const snapshot = await db.collection("resources").orderBy("timestamp", "desc").get();
     results.innerHTML = "";
+    
     snapshot.forEach(doc => {
         const res = doc.data();
+        const isVolJob = res.type === 'volunteer_job';
+        const alreadySigned = res.volunteers && res.volunteers.includes(currentUser.uid);
+
         results.innerHTML += `
             <div class="resource-card">
+                <span class="tag ${res.type}">${res.type}</span>
                 <h3>${res.title}</h3>
-                <p><b>From:</b> ${res.author}</p>
                 <p>${res.desc}</p>
+                <p><small>Posted by: ${res.author}</small></p>
+                ${isVolJob && currentUser.role === 'volunteer' ? 
+                    `<button class="primary-btn" onclick="signUp('${doc.id}')" ${alreadySigned ? 'disabled' : ''}>
+                        ${alreadySigned ? 'Signed Up ✓' : 'Sign Up to Volunteer'}
+                    </button>` : ''}
             </div>`;
     });
 }
 
-// --- 6. PROFILE LOGIC ---
-function renderProfileForm() {
-    const container = document.getElementById('profile-inputs');
-    const d = currentUser.details || {};
-    if (currentUser.role === 'caregiver') {
-        container.innerHTML = `<input id="p-need" placeholder="Care Need" value="${d.need || ''}"><textarea id="p-story">${d.story || ''}</textarea>`;
-    } else if (currentUser.role === 'volunteer') {
-        container.innerHTML = `<input id="p-expertise" placeholder="Expertise" value="${d.expertise || ''}"><input id="p-hours" value="${d.hours || ''}">`;
-    } else {
-        container.innerHTML = `<input id="p-orgName" value="${d.orgName || ''}"><input id="p-website" value="${d.website || ''}">`;
-    }
-}
-
-async function saveProfile() {
-    const userRef = db.collection("profiles").doc(currentUser.uid);
-    let details = {};
-    if (currentUser.role === 'caregiver') {
-        details = { need: document.getElementById('p-need').value, story: document.getElementById('p-story').value };
-    } else if (currentUser.role === 'volunteer') {
-        details = { expertise: document.getElementById('p-expertise').value, hours: document.getElementById('p-hours').value };
-    } else {
-        details = { orgName: document.getElementById('p-orgName').value, website: document.getElementById('p-website').value };
-    }
-    await userRef.update({ details });
-    currentUser.details = details;
-    sessionStorage.setItem('cc_user', JSON.stringify(currentUser));
-    alert("Profile Saved!");
+async function signUp(listingId) {
+    if (currentUser.role !== 'volunteer') return alert("Only volunteers can sign up!");
+    
+    try {
+        await db.collection("resources").doc(listingId).update({
+            volunteers: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+        });
+        alert("Success! You are signed up.");
+        renderSearch(); // Refresh the list
+    } catch (e) { alert("Error signing up."); }
 }
 
 function toggleMenu() { document.getElementById('nav-dropdown').classList.toggle('show'); }
-function logout() { sessionStorage.clear(); location.reload(); }
-
-// Startup check
-if (currentUser) initApp();
-
-// Input listeners for cleaner UI
-document.getElementById('username').addEventListener('input', () => {
-    const err = document.getElementById('auth-error');
-    if (err) err.style.display = 'none';
-});
-document.getElementById('password').addEventListener('input', () => {
-    const err = document.getElementById('auth-error');
-    if (err) err.style.display = 'none';
-});
+function logout() { auth.signOut(); }

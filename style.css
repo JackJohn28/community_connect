@@ -7,129 +7,23 @@
     --shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    background-color: var(--light);
-    color: var(--dark);
-}
-
-header {
-    background: var(--primary);
-    color: var(--white);
-    padding: 0.5rem 1rem;
-    box-shadow: var(--shadow);
-}
-
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    max-width: 900px;
-    margin: 0 auto;
-}
-
-main {
-    max-width: 600px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-}
-
-.card {
-    background: var(--white);
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    margin-bottom: 1rem;
-}
-
-input, select, textarea {
-    width: 100%;
-    padding: 0.8rem;
-    margin: 0.6rem 0;
-    border: 1px solid #d2ddec;
-    border-radius: 8px;
-    box-sizing: border-box;
-}
-
-.primary-btn {
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 0.8rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    width: 100%;
-}
-
-.secondary-btn {
-    background: var(--secondary);
-    color: white;
-    border: none;
-    padding: 0.8rem;
-    border-radius: 8px;
-    cursor: pointer;
-    width: 100%;
-    margin-top: 0.5rem;
-}
-
-.tabs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 1rem;
-}
-
-.tabs button {
-    flex: 1;
-    padding: 0.5rem;
-    cursor: pointer;
-    border: 1px solid var(--primary);
-    border-radius: 6px;
-    background: white;
-}
-
-.tabs button.active {
-    background: var(--primary);
-    color: white;
-}
-
-/* Nav Menu */
-.menu-btn {
-    background: rgba(255,255,255,0.2);
-    border: 1px solid white;
-    color: white;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.dropdown-content {
-    display: none;
-    position: absolute;
-    right: 20px;
-    background: white;
-    min-width: 160px;
-    box-shadow: var(--shadow);
-    border-radius: 8px;
-    z-index: 100;
-}
-
-.dropdown-content a {
-    color: var(--dark);
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-}
-
-.dropdown-content a:hover { background: var(--light); }
+body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: var(--light); color: var(--dark); }
+header { background: var(--primary); color: var(--white); padding: 0.5rem 1rem; }
+.header-content { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto; }
+main { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+.card { background: var(--white); padding: 2rem; border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 1rem; }
+input, select, textarea { width: 100%; padding: 0.8rem; margin: 0.6rem 0; border: 1px solid #d2ddec; border-radius: 8px; box-sizing: border-box; }
+.primary-btn { background: var(--primary); color: white; border: none; padding: 0.8rem; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
+.primary-btn:disabled { background: #90ee90; cursor: not-allowed; }
+.secondary-btn { background: var(--secondary); color: white; border: none; padding: 0.8rem; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 0.5rem; }
+.tabs { display: flex; gap: 10px; margin-bottom: 1rem; }
+.tabs button { flex: 1; padding: 0.5rem; cursor: pointer; border: 1px solid var(--primary); border-radius: 6px; background: white; }
+.tabs button.active { background: var(--primary); color: white; }
+.menu-btn { background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+.dropdown-content { display: none; position: absolute; right: 20px; background: white; min-width: 160px; box-shadow: var(--shadow); border-radius: 8px; z-index: 100; }
+.dropdown-content a { color: var(--dark); padding: 12px 16px; text-decoration: none; display: block; }
 .show { display: block; }
-
-.resource-card {
-    background: white;
-    padding: 1rem;
-    border-radius: 8px;
-    margin-top: 10px;
-    border-left: 5px solid var(--primary);
-    text-align: left;
-}
+.resource-card { background: white; padding: 1rem; border-radius: 8px; margin-top: 10px; border-left: 5px solid var(--primary); }
+.tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; background: #eee; }
+.tag.volunteer_job { background: #ffd700; }
+.tag.event { background: #90ee90; }
