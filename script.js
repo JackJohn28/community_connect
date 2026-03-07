@@ -15,7 +15,7 @@ const auth = firebase.auth();
 
 // --- 2. GLOBAL STATE ---
 let currentUser = null;
-let needsVolunteers = false;
+let roleCount = 0;
 
 // --- 3. PERSISTENCE OBSERVER ---
 auth.onAuthStateChanged(async (user) => {
@@ -33,7 +33,7 @@ auth.onAuthStateChanged(async (user) => {
     }
 });
 
-// --- 4. AUTH LOGIC ---
+// --- 4. AUTH & REGISTRATION ---
 function setAuthMode(mode) {
     const isReg = mode === 'reg';
     document.getElementById('auth-title').innerText = isReg ? 'Register' : 'Login';
@@ -48,16 +48,14 @@ function updateRoleFields() {
     const role = document.getElementById('user-role').value;
     const container = document.getElementById('dynamic-questions');
     container.innerHTML = "";
-
     if (role === 'volunteer' || role === 'caregiver') {
         container.innerHTML = `
-            <div class="name-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <input type="text" id="reg-fname" placeholder="First Name" style="flex: 1;">
                 <input type="text" id="reg-lname" placeholder="Last Name" style="flex: 1;">
-            </div>
-            ${role === 'volunteer' ? `<input type="text" id="reg-expertise" placeholder="Expertise">` : `<input type="text" id="reg-care-need" placeholder="Primary Need">`}`;
+            </div>`;
     } else if (role === 'org') {
-        container.innerHTML = `<input type="text" id="reg-org-name" placeholder="Org Name"><input type="text" id="reg-website" placeholder="Website">`;
+        container.innerHTML = `<input type="text" id="reg-org-name" placeholder="Organization Name">`;
     }
 }
 
@@ -70,20 +68,15 @@ async function handleAuth() {
 
     try {
         if (isRegMode) {
-            const userCredential = await auth.createUserWithEmailAndPassword(fakeEmail, pass);
+            const userCred = await auth.createUserWithEmailAndPassword(fakeEmail, pass);
             const role = document.getElementById('user-role').value;
-            let profileData = { username: userIn, role: role, details: {} };
-
-            if (role === 'volunteer' || role === 'caregiver') {
+            let profileData = { username: userIn, role: role };
+            if (role === 'org') profileData.orgName = document.getElementById('reg-org-name').value;
+            else {
                 profileData.firstName = document.getElementById('reg-fname').value;
                 profileData.lastName = document.getElementById('reg-lname').value;
-                if (role === 'volunteer') profileData.details.expertise = document.getElementById('reg-expertise').value;
-                else profileData.details.need = document.getElementById('reg-care-need').value;
-            } else {
-                profileData.orgName = document.getElementById('reg-org-name').value;
-                profileData.details.website = document.getElementById('reg-website').value;
             }
-            await db.collection("profiles").doc(userCredential.user.uid).set(profileData);
+            await db.collection("profiles").doc(userCred.user.uid).set(profileData);
         } else {
             await auth.signInWithEmailAndPassword(fakeEmail, pass);
         }
@@ -108,15 +101,34 @@ function renderDashboard() {
     const name = currentUser.firstName || currentUser.orgName || currentUser.username;
     document.getElementById('dash-title').innerText = `Hello, ${name}!`;
     const btnContainer = document.getElementById('action-buttons');
-    btnContainer.innerHTML = (currentUser.role === 'org') ? `<button class="primary-btn" onclick="showSection('create-listing')">+ Create Listing</button>` : "";
-    btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse Listings</button>`;
+    btnContainer.innerHTML = (currentUser.role === 'org') ? `<button class="primary-btn" onclick="showSection('create-listing')">+ Create New Listing</button>` : "";
+    btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse All Listings</button>`;
 }
 
-// --- 6. LISTINGS & SIGNUPS ---
-function toggleVolunteerFields() {
-    const volDiv = document.getElementById('volunteer-details');
-    needsVolunteers = !needsVolunteers;
-    volDiv.style.display = needsVolunteers ? 'block' : 'none';
+// --- 6. MULTI-ROLE LISTING LOGIC ---
+function addVolunteerRoleField() {
+    roleCount++;
+    const container = document.getElementById('volunteer-positions-container');
+    const roleDiv = document.createElement('div');
+    roleDiv.className = 'role-input-group';
+    roleDiv.innerHTML = `
+        <div style="border: 1px dashed #6e84a3; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; position: relative;">
+            <button type="button" onclick="this.parentElement.remove()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; cursor: pointer; color: red;">✕</button>
+            <h4 style="margin: 0 0 10px 0;">Volunteer Role</h4>
+            <input type="text" class="vol-role-name" placeholder="Role Name (e.g. Driver)">
+            <textarea class="vol-role-desc" placeholder="What will they do?" rows="2"></textarea>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" class="vol-skill" placeholder="Skill Required" style="flex: 2;">
+                <input type="number" class="vol-slots" placeholder="Slots" style="flex: 1;">
+            </div>
+            <label style="font-size: 0.8em;">Urgency:</label>
+            <select class="vol-urgency">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+            </select>
+        </div>`;
+    container.appendChild(roleDiv);
 }
 
 async function submitListing() {
@@ -124,39 +136,33 @@ async function submitListing() {
     const desc = document.getElementById('post-desc').value.trim();
     const type = document.getElementById('post-type').value;
 
-    if (!title || !desc) return alert("Please fill out Title and Description");
+    if (!title || !desc) return alert("Title and Description are required");
 
-    const data = {
-        title, desc, type, 
-        author: currentUser.orgName || currentUser.username,
-        authorId: currentUser.uid,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        volunteers: [] 
-    };
-    
-    if (needsVolunteers) {
-        data.isVolunteerJob = true;
-        data.volRoleName = document.getElementById('post-vol-role').value; // New
-        data.volRoleDesc = document.getElementById('post-vol-desc').value; // New
-        data.skill = document.getElementById('post-skill').value;
-        data.slots = document.getElementById('post-slots').value;
-        data.urgency = document.getElementById('post-urgency').value;
-    } else {
-        data.isVolunteerJob = false;
-    }
+    const roleGroups = document.querySelectorAll('.role-input-group');
+    const positions = [];
+    roleGroups.forEach(group => {
+        positions.push({
+            roleName: group.querySelector('.vol-role-name').value,
+            roleDesc: group.querySelector('.vol-role-desc').value,
+            skill: group.querySelector('.vol-skill').value,
+            slots: parseInt(group.querySelector('.vol-slots').value) || 1,
+            urgency: group.querySelector('.vol-urgency').value,
+            volunteers: [] 
+        });
+    });
 
     try {
-        await db.collection("resources").add(data);
+        await db.collection("resources").add({
+            title, desc, type,
+            author: currentUser.orgName || currentUser.username,
+            authorId: currentUser.uid,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            positions: positions
+        });
         alert("Published!");
-        // Clear fields
-        document.getElementById('post-title').value = "";
-        document.getElementById('post-desc').value = "";
-        document.getElementById('post-vol-role').value = "";
-        document.getElementById('post-vol-desc').value = "";
-        document.getElementById('volunteer-details').style.display = 'none';
-        needsVolunteers = false;
+        document.getElementById('volunteer-positions-container').innerHTML = "";
         showSection('search');
-    } catch (e) { alert("Error: " + e.message); }
+    } catch (e) { alert(e.message); }
 }
 
 async function renderSearch() {
@@ -164,49 +170,56 @@ async function renderSearch() {
     results.innerHTML = "Loading...";
     const snapshot = await db.collection("resources").orderBy("timestamp", "desc").get();
     results.innerHTML = "";
-    
+
     snapshot.forEach(doc => {
         const res = doc.data();
-        const alreadySigned = res.volunteers && res.volunteers.includes(currentUser.uid);
-        const urgencyClass = res.urgency ? `urgency-${res.urgency}` : "";
+        let rolesHTML = "";
 
-// Inside the snapshot.forEach loop in renderSearch:
+        if (res.positions && res.positions.length > 0) {
+            res.positions.forEach((pos, idx) => {
+                const filled = pos.volunteers ? pos.volunteers.length : 0;
+                const isFull = filled >= pos.slots;
+                const userSigned = pos.volunteers && pos.volunteers.includes(currentUser.uid);
+
+                rolesHTML += `
+                    <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <h4 style="margin:0;">${pos.roleName} <small class="urgency-${pos.urgency}">(${pos.urgency})</small></h4>
+                                <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
+                                <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
+                            </div>
+                            ${currentUser.role === 'volunteer' ? `
+                                <button class="primary-btn" style="width:auto; padding:5px 10px;" 
+                                    onclick="signUpForRole('${doc.id}', ${idx})" ${isFull || userSigned ? 'disabled' : ''}>
+                                    ${userSigned ? 'Joined' : (isFull ? 'Full' : 'Join')}
+                                </button>` : ''}
+                        </div>
+                    </div>`;
+            });
+        }
+
         results.innerHTML += `
             <div class="resource-card">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="tag ${res.type}">${res.type}</span>
-                    ${res.urgency ? `<span class="urgency-tag urgency-${res.urgency}">${res.urgency.toUpperCase()}</span>` : ""}
-                </div>
+                <span class="tag ${res.type}">${res.type}</span>
                 <h3>${res.title}</h3>
                 <p>${res.desc}</p>
-        
-                ${res.isVolunteerJob ? `
-                    <div style="background: #f1f4f9; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid var(--secondary);">
-                        <h4 style="margin: 0 0 5px 0;">Volunteer Needed: ${res.volRoleName || 'General Helper'}</h4>
-                        <p style="font-size: 0.9em; margin-bottom: 5px;">${res.volRoleDesc || ''}</p>
-                        <p style="font-size: 0.85em; margin: 0;"><b>Requirements:</b> ${res.skill || 'None'}</p>
-                    </div>
-                ` : ""}
-
-                <p><small>Posted by: ${res.author}</small></p>
-        
-                ${res.isVolunteerJob && currentUser.role === 'volunteer' ? 
-                    `<button class="primary-btn" onclick="signUp('${doc.id}')" ${alreadySigned ? 'disabled' : ''} style="margin-top:10px;">
-                        ${alreadySigned ? 'Signed Up ✓' : 'Sign Up to Volunteer'}
-                    </button>` : ''}
+                ${rolesHTML}
+                <p><small>By: ${res.author}</small></p>
             </div>`;
     });
 }
 
-async function signUp(listingId) {
-    if (currentUser.role !== 'volunteer') return alert("Only volunteers can sign up!");
-    try {
-        await db.collection("resources").doc(listingId).update({
-            volunteers: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
-        });
-        alert("Success! You are signed up.");
+async function signUpForRole(docId, roleIdx) {
+    const docRef = db.collection("resources").doc(docId);
+    const snap = await docRef.get();
+    const positions = snap.data().positions;
+    if (!positions[roleIdx].volunteers.includes(currentUser.uid)) {
+        positions[roleIdx].volunteers.push(currentUser.uid);
+        await docRef.update({ positions: positions });
+        alert("Signed up!");
         renderSearch();
-    } catch (e) { alert("Error signing up."); }
+    }
 }
 
 function toggleMenu() { document.getElementById('nav-dropdown').classList.toggle('show'); }

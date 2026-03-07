@@ -29,10 +29,8 @@
                     <button id="tab-login" class="active" onclick="setAuthMode('login')">Login</button>
                     <button id="tab-reg" onclick="setAuthMode('reg')">Register</button>
                 </div>
-
                 <input type="text" id="username" placeholder="Username">
                 <input type="password" id="password" placeholder="Password">
-                
                 <div id="reg-fields" style="display:none;">
                     <p>Select your role:</p>
                     <select id="user-role" onchange="updateRoleFields()">
@@ -42,7 +40,6 @@
                     </select>
                     <div id="dynamic-questions" style="margin-top: 15px;"></div>
                 </div>
-
                 <p id="auth-error" style="color: #ff4d4d; font-size: 0.9em; margin-bottom: 10px; display: none;"></p>
                 <button id="auth-submit" class="primary-btn" onclick="handleAuth()">Login</button>
             </div>
@@ -53,60 +50,41 @@
             <div class="grid" id="action-buttons"></div>
         </section>
 
-        <section id="search" style="display:none;">
-            <h2>Available Resources</h2>
-            <div id="search-results"></div>
-            <button class="secondary-btn" onclick="showSection('dashboard')">Back to Dashboard</button>
-        </section>
-
         <section id="create-listing" style="display:none;">
             <div class="card">
                 <h2>Create New Listing</h2>
-                
                 <label>Category:</label>
                 <select id="post-type">
                     <option value="service">Service</option>
                     <option value="event">Event</option>
                     <option value="resource">Resource</option>
                 </select>
-
                 <input type="text" id="post-title" placeholder="Name of Event / Resource">
-                <textarea id="post-desc" placeholder="Provide a detailed description..." rows="4"></textarea>
+                <textarea id="post-desc" placeholder="Full Description..." rows="3"></textarea>
 
-                <button type="button" class="secondary-btn" onclick="toggleVolunteerFields()" style="background: #6c757d; margin-bottom: 10px;">
+                <div id="volunteer-positions-container">
+                    </div>
+
+                <button type="button" class="secondary-btn" onclick="addVolunteerRoleField()" style="background: #6c757d; margin-bottom: 15px;">
                     + Add Volunteer Position
                 </button>
-
-                <div id="volunteer-details" style="display:none; border: 1px dashed var(--secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa;">
-                <h4 style="margin-top: 0; color: var(--primary);">Volunteer Role Details</h4>
-    
-                <input type="text" id="post-vol-role" placeholder="Position Name (e.g., Event Photographer)">
-                <textarea id="post-vol-desc" placeholder="What will this volunteer be doing?" rows="2"></textarea>
-    
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="post-skill" placeholder="Required Skill" style="flex: 2;">
-                    <input type="number" id="post-slots" placeholder="Qty" style="flex: 1;">
-                </div>
-    
-                <label>Urgency Level:</label>
-                <select id="post-urgency">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                </select>
-            </div>
 
                 <button class="primary-btn" onclick="submitListing()">Publish Listing</button>
                 <button class="secondary-btn" onclick="showSection('dashboard')">Cancel</button>
             </div>
         </section>
 
+        <section id="search" style="display:none;">
+            <h2>Browse Listings</h2>
+            <div id="search-results"></div>
+            <button class="secondary-btn" onclick="showSection('dashboard')">Back to Dashboard</button>
+        </section>
+
         <section id="profile" style="display:none;">
             <div class="card">
                 <h2>My Profile</h2>
                 <div id="profile-inputs"></div>
-                <button class="primary-btn" onclick="saveProfile()">Save Changes</button>
-                <button class="secondary-btn" onclick="showSection('dashboard')">Cancel</button>
+                <button class="primary-btn" onclick="showSection('dashboard')">Close</button>
             </div>
         </section>
     </main>
