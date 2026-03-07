@@ -111,13 +111,36 @@ function initApp() {
 }
 
 function showSection(id) {
-    document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
-    document.getElementById(id).style.display = 'block';
-    if (id === 'dashboard') renderDashboard();
-    if (id === 'search') renderSearch();
-    if (id === 'profile') renderProfile();
-}
+    // 1. Find all sections inside <main>
+    const sections = document.querySelectorAll('main > section');
+    
+    // 2. Hide them all
+    sections.forEach(s => {
+        if (s) s.style.display = 'none';
+    });
 
+    // 3. Find the specific section we want to show
+    const target = document.getElementById(id);
+    
+    // 4. ONLY try to show it if it actually exists in the HTML
+    if (target) {
+        target.style.display = 'block';
+        
+        // Render specific data depending on the section
+        if (id === 'dashboard') renderDashboard();
+        if (id === 'search') renderSearch();
+        if (id === 'profile') {
+            // Check if renderProfile exists before calling it
+            if (typeof renderProfile === "function") {
+                renderProfile();
+            } else {
+                console.error("renderProfile function is missing!");
+            }
+        }
+    } else {
+        console.warn(`Attempted to show section "${id}", but it's missing from HTML.`);
+    }
+}
 function renderDashboard() {
     const name = currentUser.firstName || currentUser.orgName || currentUser.username;
     document.getElementById('dash-title').innerText = `Hello, ${name}!`;
