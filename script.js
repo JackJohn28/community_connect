@@ -115,6 +115,7 @@ function showSection(id) {
     document.getElementById(id).style.display = 'block';
     if (id === 'dashboard') renderDashboard();
     if (id === 'search') renderSearch();
+    if (id === 'profile') renderProfile();
 }
 
 function renderDashboard() {
@@ -126,6 +127,39 @@ function renderDashboard() {
 }
 
 // --- 6. MULTI-ROLE LISTING LOGIC ---
+function renderProfile() {
+    const container = document.getElementById('profile-display');
+    if (!currentUser || !container) return;
+
+    let roleSpecificHTML = "";
+
+    // Requirement ID - 2 & 3: Handle role-specific data display
+    if (currentUser.role === 'org') {
+        roleSpecificHTML = `
+            <p><strong>Organization:</strong> ${currentUser.orgName || 'Not Set'}</p>
+            <p><strong>Website:</strong> <a href="${currentUser.details?.website || '#'}" target="_blank">${currentUser.details?.website || 'No website listed'}</a></p>
+        `;
+    } else if (currentUser.role === 'volunteer') {
+        roleSpecificHTML = `
+            <p><strong>Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
+            <p><strong>Expertise:</strong> ${currentUser.details?.expertise || 'None listed'}</p>
+        `;
+    } else if (currentUser.role === 'caregiver') {
+        roleSpecificHTML = `
+            <p><strong>Caregiver Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
+            <p><strong>Primary Care Need:</strong> ${currentUser.details?.need || 'None listed'}</p>
+        `;
+    }
+
+    container.innerHTML = `
+        <div style="border-bottom: 2px solid #f1f4f9; margin-bottom: 15px; padding-bottom: 10px;">
+            <p><strong>Username:</strong> ${currentUser.username}</p>
+            <p><strong>Account Type:</strong> <span class="tag ${currentUser.role}">${currentUser.role.toUpperCase()}</span></p>
+        </div>
+        ${roleSpecificHTML}
+    `;
+}
+
 function addVolunteerRoleField() {
     roleCount++;
     const container = document.getElementById('volunteer-positions-container');
