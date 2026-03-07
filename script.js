@@ -113,7 +113,6 @@ function showSection(id) {
     document.getElementById(id).style.display = 'block';
     if (id === 'dashboard') renderDashboard();
     if (id === 'search') renderSearch();
-    if (id === 'profile') renderProfile();
 }
 
 function renderDashboard() {
@@ -122,15 +121,6 @@ function renderDashboard() {
     const btnContainer = document.getElementById('action-buttons');
     btnContainer.innerHTML = (currentUser.role === 'org') ? `<button class="primary-btn" onclick="showSection('create-listing')">+ Create New Listing</button>` : "";
     btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse All Listings</button>`;
-}
-
-function renderProfile() {
-    const container = document.getElementById('profile-display');
-    container.innerHTML = `
-        <p><b>Username:</b> ${currentUser.username}</p>
-        <p><b>Role:</b> ${currentUser.role}</p>
-        ${currentUser.orgName ? `<p><b>Organization:</b> ${currentUser.orgName}</p>` : `<p><b>Name:</b> ${currentUser.firstName} ${currentUser.lastName}</p>`}
-    `;
 }
 
 // --- 6. MULTI-ROLE LISTING LOGIC ---
@@ -168,13 +158,21 @@ async function submitListing() {
 
     const roleGroups = document.querySelectorAll('.role-input-group');
     const positions = [];
+
     roleGroups.forEach(group => {
+        // Safety checks to ensure elements exist before reading .value
+        const rName = group.querySelector('.vol-role-name')?.value || "General Volunteer";
+        const rDesc = group.querySelector('.vol-role-desc')?.value || "";
+        const rSkill = group.querySelector('.vol-skill')?.value || "None";
+        const rSlots = parseInt(group.querySelector('.vol-slots')?.value) || 1;
+        const rUrgency = group.querySelector('.vol-urgency')?.value || "low";
+
         positions.push({
-            roleName: group.querySelector('.vol-role-name').value,
-            roleDesc: group.querySelector('.vol-role-desc').value,
-            skill: group.querySelector('.vol-skill').value,
-            slots: parseInt(group.querySelector('.vol-slots').value) || 1,
-            urgency: group.querySelector('.vol-urgency').value,
+            roleName: rName,
+            roleDesc: rDesc,
+            skill: rSkill,
+            slots: rSlots,
+            urgency: rUrgency,
             volunteers: [] 
         });
     });
@@ -188,9 +186,11 @@ async function submitListing() {
             positions: positions
         });
         alert("Published!");
+        document.getElementById('post-title').value = "";
+        document.getElementById('post-desc').value = "";
         document.getElementById('volunteer-positions-container').innerHTML = "";
         showSection('search');
-    } catch (e) { alert(e.message); }
+    } catch (e) { alert("Error: " + e.message); }
 }
 
 async function renderSearch() {
@@ -213,7 +213,7 @@ async function renderSearch() {
                     <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
-                                <h4 style="margin:0;">${pos.roleName} <small class="urgency-${pos.urgency}">(${pos.urgency})</small></h4>
+                                <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span></h4>
                                 <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
                                 <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
                             </div>
@@ -240,14 +240,16 @@ async function renderSearch() {
 
 async function signUpForRole(docId, roleIdx) {
     const docRef = db.collection("resources").doc(docId);
-    const snap = await docRef.get();
-    const positions = snap.data().positions;
-    if (!positions[roleIdx].volunteers.includes(currentUser.uid)) {
-        positions[roleIdx].volunteers.push(currentUser.uid);
-        await docRef.update({ positions: positions });
-        alert("Signed up!");
-        renderSearch();
-    }
+    try {
+        const snap = await docRef.get();
+        const positions = snap.data().positions;
+        if (!positions[roleIdx].volunteers.includes(currentUser.uid)) {
+            positions[roleIdx].volunteers.push(currentUser.uid);
+            await docRef.update({ positions: positions });
+            alert("Signed up!");
+            renderSearch();
+        }
+    } catch (e) { alert("Error signing up."); }
 }
 
 function toggleMenu() { document.getElementById('nav-dropdown').classList.toggle('show'); }
