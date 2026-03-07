@@ -27,9 +27,11 @@ auth.onAuthStateChanged(async (user) => {
         }
     } else {
         currentUser = null;
+        // Hide ALL sections
+        document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+        // Only show the auth section
         document.getElementById('auth-section').style.display = 'block';
         document.getElementById('main-nav').style.display = 'none';
-        document.getElementById('dashboard').style.display = 'none';
     }
 });
 
@@ -275,4 +277,15 @@ async function signUpForRole(docId, roleIdx) {
 }
 
 function toggleMenu() { document.getElementById('nav-dropdown').classList.toggle('show'); }
-function logout() { auth.signOut(); }
+function logout() {
+    auth.signOut().then(() => {
+        // Force the UI back to the login state immediately
+        document.querySelectorAll('main > section').forEach(s => s.style.display = 'none');
+        document.getElementById('auth-section').style.display = 'block';
+        document.getElementById('main-nav').style.display = 'none';
+        
+        // Clear inputs so the next user doesn't see old data
+        document.getElementById('username').value = "";
+        document.getElementById('password').value = "";
+    });
+}
