@@ -136,6 +136,8 @@ async function submitListing() {
     
     if (needsVolunteers) {
         data.isVolunteerJob = true;
+        data.volRoleName = document.getElementById('post-vol-role').value; // New
+        data.volRoleDesc = document.getElementById('post-vol-desc').value; // New
         data.skill = document.getElementById('post-skill').value;
         data.slots = document.getElementById('post-slots').value;
         data.urgency = document.getElementById('post-urgency').value;
@@ -146,8 +148,11 @@ async function submitListing() {
     try {
         await db.collection("resources").add(data);
         alert("Published!");
+        // Clear fields
         document.getElementById('post-title').value = "";
         document.getElementById('post-desc').value = "";
+        document.getElementById('post-vol-role').value = "";
+        document.getElementById('post-vol-desc').value = "";
         document.getElementById('volunteer-details').style.display = 'none';
         needsVolunteers = false;
         showSection('search');
@@ -165,19 +170,28 @@ async function renderSearch() {
         const alreadySigned = res.volunteers && res.volunteers.includes(currentUser.uid);
         const urgencyClass = res.urgency ? `urgency-${res.urgency}` : "";
 
+// Inside the snapshot.forEach loop in renderSearch:
         results.innerHTML += `
             <div class="resource-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span class="tag ${res.type}">${res.type}</span>
-                    ${res.urgency ? `<span class="urgency-tag ${urgencyClass}">${res.urgency.toUpperCase()}</span>` : ""}
+                    ${res.urgency ? `<span class="urgency-tag urgency-${res.urgency}">${res.urgency.toUpperCase()}</span>` : ""}
                 </div>
                 <h3>${res.title}</h3>
                 <p>${res.desc}</p>
-                ${res.skill ? `<p><b>Needed Skill:</b> ${res.skill}</p>` : ""}
+        
+                ${res.isVolunteerJob ? `
+                    <div style="background: #f1f4f9; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid var(--secondary);">
+                        <h4 style="margin: 0 0 5px 0;">Volunteer Needed: ${res.volRoleName || 'General Helper'}</h4>
+                        <p style="font-size: 0.9em; margin-bottom: 5px;">${res.volRoleDesc || ''}</p>
+                        <p style="font-size: 0.85em; margin: 0;"><b>Requirements:</b> ${res.skill || 'None'}</p>
+                    </div>
+                ` : ""}
+
                 <p><small>Posted by: ${res.author}</small></p>
-                
+        
                 ${res.isVolunteerJob && currentUser.role === 'volunteer' ? 
-                    `<button class="primary-btn" onclick="signUp('${doc.id}')" ${alreadySigned ? 'disabled' : ''}>
+                    `<button class="primary-btn" onclick="signUp('${doc.id}')" ${alreadySigned ? 'disabled' : ''} style="margin-top:10px;">
                         ${alreadySigned ? 'Signed Up ✓' : 'Sign Up to Volunteer'}
                     </button>` : ''}
             </div>`;

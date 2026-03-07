@@ -77,18 +77,24 @@
                     + Add Volunteer Position
                 </button>
 
-                <div id="volunteer-details" style="display:none; border: 1px dashed var(--secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <h4 style="margin-top: 0;">Volunteer Requirements</h4>
-                    <input type="text" id="post-skill" placeholder="Required Skill (e.g. CPR, Driving)">
-                    <input type="number" id="post-slots" placeholder="Number of volunteers needed">
-                    
-                    <label>Urgency Level:</label>
-                    <select id="post-urgency">
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                    </select>
+                <div id="volunteer-details" style="display:none; border: 1px dashed var(--secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa;">
+                <h4 style="margin-top: 0; color: var(--primary);">Volunteer Role Details</h4>
+    
+                <input type="text" id="post-vol-role" placeholder="Position Name (e.g., Event Photographer)">
+                <textarea id="post-vol-desc" placeholder="What will this volunteer be doing?" rows="2"></textarea>
+    
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="post-skill" placeholder="Required Skill" style="flex: 2;">
+                    <input type="number" id="post-slots" placeholder="Qty" style="flex: 1;">
                 </div>
+    
+                <label>Urgency Level:</label>
+                <select id="post-urgency">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
 
                 <button class="primary-btn" onclick="submitListing()">Publish Listing</button>
                 <button class="secondary-btn" onclick="showSection('dashboard')">Cancel</button>
