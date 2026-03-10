@@ -129,6 +129,7 @@ function showSection(id) {
         // Render specific data depending on the section
         if (id === 'dashboard') renderDashboard();
         if (id === 'search') renderSearch();
+	if (id === 'org-management') renderOrgManagement();
         if (id === 'profile') {
             // Check if renderProfile exists before calling it
             if (typeof renderProfile === "function") {
@@ -141,15 +142,27 @@ function showSection(id) {
         console.warn(`Attempted to show section "${id}", but it's missing from HTML.`);
     }
 }
+
+// --- 6. MULTI-ROLE LISTING LOGIC ---
 function renderDashboard() {
     const name = currentUser.firstName || currentUser.orgName || currentUser.username;
     document.getElementById('dash-title').innerText = `Hello, ${name}!`;
     const btnContainer = document.getElementById('action-buttons');
-    btnContainer.innerHTML = (currentUser.role === 'org') ? `<button class="primary-btn" onclick="showSection('create-listing')">+ Create New Listing</button>` : "";
+    
+    // Org-only buttons
+    if (currentUser.role === 'org') {
+        btnContainer.innerHTML = `
+            <button class="primary-btn" onclick="showSection('create-listing')">+ Create New Listing</button>
+            <button class="secondary-btn" style="margin-top:10px" onclick="showSection('org-management')">📋 Manage My Listings & Applicants</button>
+        `;
+    } else {
+        btnContainer.innerHTML = "";
+    }
+    
     btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse All Listings</button>`;
 }
 
-// --- 6. MULTI-ROLE LISTING LOGIC ---
+
 function renderProfile() {
     const container = document.getElementById('profile-display');
     if (!currentUser || !container) return;
@@ -394,5 +407,66 @@ async function saveProfile() {
     } catch (e) {
         console.error("Error updating profile:", e);
         alert("Failed to update profile.");
+    }
+}
+
+async function renderOrgManagement() {
+    const container = document.getElementById('my-listings-container');
+    container.innerHTML = "<p>Loading your listings...</p>";
+
+    try {
+        // 1. Get only the listings created by THIS Organization
+        const snapshot = await db.collection("resources")
+            .where("authorId", "==", currentUser.uid)
+            .get();
+
+        if (snapshot.empty) {
+            container.innerHTML = "<p>You haven't posted any listings yet.</p>";
+            return;
+        }
+
+        container.innerHTML = ""; // Clear loader
+
+        // 2. Loop through each listing
+        for (const doc of snapshot.docs) {
+            const res = doc.data();
+            let rolesSectionHTML = "";
+
+            // 3. For each role in the listing, find the volunteers
+            for (const pos of res.positions) {
+                let volunteerListHTML = "";
+                
+                if (pos.volunteers && pos.volunteers.length > 0) {
+                    // Fetch actual profile data for each UID in the array
+                    for (const vUid of pos.volunteers) {
+                        const vDoc = await db.collection("profiles").doc(vUid).get();
+                        const vData = vDoc.data();
+                        volunteerListHTML += `
+                            <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
+                                <strong>👤 ${vData.firstName} ${vData.lastName}</strong><br>
+                                <span style="color: #666;">Expertise: ${vData.details?.expertise || 'Not specified'}</span>
+                            </div>`;
+                    }
+                } else {
+                    volunteerListHTML = "<p style='font-size: 0.8em; color: #999;'>No applicants yet.</p>";
+                }
+
+                rolesSectionHTML += `
+                    <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                        <h4 style="margin: 0 0 5px 0;">${pos.roleName} (${pos.volunteers.length}/${pos.slots} filled)</h4>
+                        ${volunteerListHTML}
+                    </div>`;
+            }
+
+            container.innerHTML += `
+                <div class="resource-card" style="border-left: 5px solid #28a745; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0;">${res.title}</h3>
+                    <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
+                    ${rolesSectionHTML}
+                </div>`;
+        }
+    } catch (e) {
+        console.error("Error loading roster:", e);
+        container.innerHTML = "<p>Error loading data. Check console.</p>";
     }
 }
