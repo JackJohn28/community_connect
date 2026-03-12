@@ -626,3 +626,67 @@ label {
     gap: 0.5rem;
   }
 }
+
+/* ─── TIP CARDS ─── */
+.tips-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.tip-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  animation: fadeUp 0.3s ease both;
+}
+
+.tip-card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.tip-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.tip-card:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.tip-card:hover {
+  border-color: var(--primary-light);
+  box-shadow: var(--shadow);
+  transform: translateX(4px);
+}
+
+.tip-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: var(--light);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tip-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--dark);
+  margin: 0 0 0.2rem 0;
+}
+
+.tip-desc {
+  font-size: 0.82rem;
+  color: var(--mid);
+  margin: 0;
+  line-height: 1.5;
+}

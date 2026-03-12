@@ -27,11 +27,9 @@ auth.onAuthStateChanged(async (user) => {
     }
   } else {
     currentUser = null;
-    // Hide ALL sections
     document
       .querySelectorAll("main > section")
       .forEach((s) => (s.style.display = "none"));
-    // Only show the auth section
     document.getElementById("auth-section").style.display = "block";
     document.getElementById("main-nav").style.display = "none";
   }
@@ -61,19 +59,19 @@ function updateRoleFields() {
 
   if (role === "volunteer" || role === "caregiver") {
     container.innerHTML = `
-            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <input type="text" id="reg-fname" placeholder="First Name" style="flex: 1;">
-                <input type="text" id="reg-lname" placeholder="Last Name" style="flex: 1;">
-            </div>
-            ${
-              role === "volunteer"
-                ? `<input type="text" id="reg-expertise" placeholder="Expertise (e.g. Nursing, Tech)">`
-                : `<input type="text" id="reg-care-need" placeholder="Primary Care Need">`
-            }`;
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <input type="text" id="reg-fname" placeholder="First Name" style="flex: 1;">
+        <input type="text" id="reg-lname" placeholder="Last Name" style="flex: 1;">
+      </div>
+      ${
+        role === "volunteer"
+          ? `<input type="text" id="reg-expertise" placeholder="Expertise (e.g. Nursing, Tech)">`
+          : `<input type="text" id="reg-care-need" placeholder="Primary Care Need">`
+      }`;
   } else if (role === "org") {
     container.innerHTML = `
-            <input type="text" id="reg-org-name" placeholder="Organization Name">
-            <input type="text" id="reg-website" placeholder="Website URL">`;
+      <input type="text" id="reg-org-name" placeholder="Organization Name">
+      <input type="text" id="reg-website" placeholder="Website URL">`;
   }
 }
 
@@ -129,27 +127,18 @@ function initApp() {
 }
 
 function showSection(id) {
-  // 1. Find all sections inside <main>
   const sections = document.querySelectorAll("main > section");
-
-  // 2. Hide them all
   sections.forEach((s) => {
     if (s) s.style.display = "none";
   });
 
-  // 3. Find the specific section we want to show
   const target = document.getElementById(id);
-
-  // 4. ONLY try to show it if it actually exists in the HTML
   if (target) {
     target.style.display = "block";
-
-    // Render specific data depending on the section
     if (id === "dashboard") renderDashboard();
     if (id === "search") renderSearch();
     if (id === "org-management") renderOrgManagement();
     if (id === "profile") {
-      // Check if renderProfile exists before calling it
       if (typeof renderProfile === "function") {
         renderProfile();
       } else {
@@ -170,17 +159,92 @@ function renderDashboard() {
   document.getElementById("dash-title").innerText = `Hello, ${name}!`;
   const btnContainer = document.getElementById("action-buttons");
 
-  // Org-only buttons
+  // Role-specific tips
+  const tips = {
+    volunteer: [
+      {
+        icon: "🔍",
+        title: "Browse Listings",
+        desc: "Find events and services posted by local organizations that need your help.",
+      },
+      {
+        icon: "✋",
+        title: "Sign Up for Roles",
+        desc: "Each listing has specific volunteer positions — join ones that match your expertise.",
+      },
+      {
+        icon: "👤",
+        title: "Keep Your Profile Updated",
+        desc: "Organizations can see your expertise when reviewing applicants. Keep it current.",
+      },
+    ],
+    caregiver: [
+      {
+        icon: "📋",
+        title: "Browse Available Resources",
+        desc: "Find services, events, and community resources available to support you.",
+      },
+      {
+        icon: "🤝",
+        title: "Connect with Organizations",
+        desc: "Local organizations post resources specifically to help caregivers like you.",
+      },
+      {
+        icon: "👤",
+        title: "Manage Your Profile",
+        desc: "Update your care needs anytime so we can surface the most relevant resources.",
+      },
+    ],
+    org: [
+      {
+        icon: "📝",
+        title: "Create a Listing",
+        desc: "Post events, services, or resources. Add volunteer roles with specific skill requirements.",
+      },
+      {
+        icon: "📋",
+        title: "Manage Your Listings",
+        desc: "View all your posts and see which volunteers have signed up for each role.",
+      },
+      {
+        icon: "👥",
+        title: "Review Applicants",
+        desc: "Check volunteer profiles and expertise to make sure you have the right people.",
+      },
+    ],
+  };
+
+  const roleTips = tips[currentUser.role] || tips.volunteer;
+
+  const tipsHTML = `
+    <div class="tips-grid">
+      ${roleTips
+        .map(
+          (tip) => `
+        <div class="tip-card">
+          <div class="tip-icon">${tip.icon}</div>
+          <div>
+            <h4 class="tip-title">${tip.title}</h4>
+            <p class="tip-desc">${tip.desc}</p>
+          </div>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
+
   if (currentUser.role === "org") {
     btnContainer.innerHTML = `
-            <button class="primary-btn" onclick="showSection('create-listing')">+ Create New Listing</button>
-            <button class="secondary-btn" style="margin-top:10px" onclick="showSection('org-management')">📋 Manage My Listings & Applicants</button>
-        `;
+      <button class="primary-btn" onclick="showSection('create-listing')">+ Create New Listing</button>
+      <button class="secondary-btn" style="margin-top:10px" onclick="showSection('org-management')">📋 Manage My Listings & Applicants</button>
+    `;
   } else {
     btnContainer.innerHTML = "";
   }
 
   btnContainer.innerHTML += `<button class="primary-btn" style="margin-top:10px" onclick="showSection('search')">Browse All Listings</button>`;
+  btnContainer.innerHTML += tipsHTML;
 }
 
 function renderProfile() {
@@ -191,44 +255,44 @@ function renderProfile() {
 
   if (currentUser.role === "org") {
     roleSpecificHTML = `
-            <p><strong>Organization:</strong> ${currentUser.orgName || "Not Set"}</p>
-            <p><strong>Website:</strong> <a href="${currentUser.details?.website || "#"}" target="_blank">${currentUser.details?.website || "No website listed"}</a></p>
-        `;
+      <p><strong>Organization:</strong> ${currentUser.orgName || "Not Set"}</p>
+      <p><strong>Website:</strong> <a href="${currentUser.details?.website || "#"}" target="_blank">${currentUser.details?.website || "No website listed"}</a></p>
+    `;
   } else if (currentUser.role === "volunteer") {
     roleSpecificHTML = `
-            <p><strong>Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
-            <p><strong>Expertise:</strong> ${currentUser.details?.expertise || "None listed"}</p>
-        `;
+      <p><strong>Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
+      <p><strong>Expertise:</strong> ${currentUser.details?.expertise || "None listed"}</p>
+    `;
   } else if (currentUser.role === "caregiver") {
     roleSpecificHTML = `
-            <div id="caregiver-view-mode">
-                <p><strong>First Name:</strong> ${currentUser.firstName}</p>
-                <p><strong>Last Name:</strong> ${currentUser.lastName}</p>
-                <p><strong>Primary Care Need:</strong> ${currentUser.details?.need || "None listed"}</p>
-                <button class="secondary-btn" onclick="toggleProfileEdit(true)" style="margin-top:10px;">Edit Profile Details</button>
-            </div>
-            <div id="caregiver-edit-mode" style="display:none;">
-                <label>First Name:</label>
-                <input type="text" id="edit-fname" value="${currentUser.firstName}">
-                <label>Last Name:</label>
-                <input type="text" id="edit-lname" value="${currentUser.lastName}">
-                <label>Primary Care Need:</label>
-                <textarea id="edit-need">${currentUser.details?.need || ""}</textarea>
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <button class="primary-btn" onclick="saveProfile()">Save Changes</button>
-                    <button class="secondary-btn" onclick="toggleProfileEdit(false)">Cancel</button>
-                </div>
-            </div>
-        `;
+      <div id="caregiver-view-mode">
+        <p><strong>First Name:</strong> ${currentUser.firstName}</p>
+        <p><strong>Last Name:</strong> ${currentUser.lastName}</p>
+        <p><strong>Primary Care Need:</strong> ${currentUser.details?.need || "None listed"}</p>
+        <button class="secondary-btn" onclick="toggleProfileEdit(true)" style="margin-top:10px;">Edit Profile Details</button>
+      </div>
+      <div id="caregiver-edit-mode" style="display:none;">
+        <label>First Name:</label>
+        <input type="text" id="edit-fname" value="${currentUser.firstName}">
+        <label>Last Name:</label>
+        <input type="text" id="edit-lname" value="${currentUser.lastName}">
+        <label>Primary Care Need:</label>
+        <textarea id="edit-need">${currentUser.details?.need || ""}</textarea>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button class="primary-btn" onclick="saveProfile()">Save Changes</button>
+          <button class="secondary-btn" onclick="toggleProfileEdit(false)">Cancel</button>
+        </div>
+      </div>
+    `;
   }
 
   container.innerHTML = `
-        <div style="border-bottom: 2px solid #f1f4f9; margin-bottom: 15px; padding-bottom: 10px;">
-            <p><strong>Username:</strong> ${currentUser.username}</p>
-            <p><strong>Account Type:</strong> <span class="tag ${currentUser.role}">${currentUser.role.toUpperCase()}</span></p>
-        </div>
-        ${roleSpecificHTML}
-    `;
+    <div style="border-bottom: 2px solid #f1f4f9; margin-bottom: 15px; padding-bottom: 10px;">
+      <p><strong>Username:</strong> ${currentUser.username}</p>
+      <p><strong>Account Type:</strong> <span class="tag ${currentUser.role}">${currentUser.role.toUpperCase()}</span></p>
+    </div>
+    ${roleSpecificHTML}
+  `;
 }
 
 function addVolunteerRoleField() {
@@ -237,22 +301,22 @@ function addVolunteerRoleField() {
   const roleDiv = document.createElement("div");
   roleDiv.className = "role-input-group";
   roleDiv.innerHTML = `
-        <div style="border: 1px dashed #6e84a3; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; position: relative;">
-            <button type="button" onclick="this.parentElement.remove()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; cursor: pointer; color: red;">✕</button>
-            <h4 style="margin: 0 0 10px 0;">Volunteer Role</h4>
-            <input type="text" class="vol-role-name" placeholder="Role Name (e.g. Driver)">
-            <textarea class="vol-role-desc" placeholder="What will they do?" rows="2"></textarea>
-            <div style="display: flex; gap: 10px;">
-                <input type="text" class="vol-skill" placeholder="Skill Required" style="flex: 2;">
-                <input type="number" class="vol-slots" placeholder="Slots" style="flex: 1;">
-            </div>
-            <label style="font-size: 0.8em;">Urgency:</label>
-            <select class="vol-urgency">
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-            </select>
-        </div>`;
+    <div style="border: 1px dashed #6e84a3; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; position: relative;">
+      <button type="button" onclick="this.parentElement.remove()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; cursor: pointer; color: red;">✕</button>
+      <h4 style="margin: 0 0 10px 0;">Volunteer Role</h4>
+      <input type="text" class="vol-role-name" placeholder="Role Name (e.g. Driver)">
+      <textarea class="vol-role-desc" placeholder="What will they do?" rows="2"></textarea>
+      <div style="display: flex; gap: 10px;">
+        <input type="text" class="vol-skill" placeholder="Skill Required" style="flex: 2;">
+        <input type="number" class="vol-slots" placeholder="Slots" style="flex: 1;">
+      </div>
+      <label style="font-size: 0.8em;">Urgency:</label>
+      <select class="vol-urgency">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>`;
   container.appendChild(roleDiv);
 }
 
@@ -267,7 +331,6 @@ async function submitListing() {
   const positions = [];
 
   roleGroups.forEach((group) => {
-    // Safety checks to ensure elements exist before reading .value
     const rName =
       group.querySelector(".vol-role-name")?.value || "General Volunteer";
     const rDesc = group.querySelector(".vol-role-desc")?.value || "";
@@ -314,14 +377,11 @@ async function renderSearch() {
   try {
     let query = db.collection("resources");
 
-    // Apply filter if "all" is NOT selected
     if (filterValue !== "all") {
       query = query.where("type", "==", filterValue);
     }
 
-    // Sort by timestamp (Note: Firestore requires an index for this combined query)
     const snapshot = await query.orderBy("timestamp", "desc").get();
-
     results.innerHTML = "";
 
     if (snapshot.empty) {
@@ -340,35 +400,35 @@ async function renderSearch() {
           const userSigned = (pos.volunteers || []).includes(currentUser.uid);
 
           rolesHTML += `
-                        <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div>
-                                    <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span></h4>
-                                    <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
-                                    <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
-                                </div>
-                                ${
-                                  currentUser.role === "volunteer"
-                                    ? `
-                                    <button class="primary-btn" style="width:auto; padding:5px 10px;" 
-                                        onclick="signUpForRole('${doc.id}', ${idx})" ${isFull || userSigned ? "disabled" : ""}>
-                                        ${userSigned ? "Joined" : isFull ? "Full" : "Join"}
-                                    </button>`
-                                    : ""
-                                }
-                            </div>
-                        </div>`;
+            <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span></h4>
+                  <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
+                  <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
+                </div>
+                ${
+                  currentUser.role === "volunteer"
+                    ? `
+                  <button class="primary-btn" style="width:auto; padding:5px 10px;"
+                    onclick="signUpForRole('${doc.id}', ${idx})" ${isFull || userSigned ? "disabled" : ""}>
+                    ${userSigned ? "Joined" : isFull ? "Full" : "Join"}
+                  </button>`
+                    : ""
+                }
+              </div>
+            </div>`;
         });
       }
 
       results.innerHTML += `
-                <div class="resource-card">
-                    <span class="tag ${res.type}">${res.type}</span>
-                    <h3>${res.title}</h3>
-                    <p>${res.desc}</p>
-                    ${rolesHTML}
-                    <p><small>By: ${res.author}</small></p>
-                </div>`;
+        <div class="resource-card">
+          <span class="tag ${res.type}">${res.type}</span>
+          <h3>${res.title}</h3>
+          <p>${res.desc}</p>
+          ${rolesHTML}
+          <p><small>By: ${res.author}</small></p>
+        </div>`;
     });
   } catch (e) {
     console.error("Error filtering:", e);
@@ -396,16 +456,14 @@ async function signUpForRole(docId, roleIdx) {
 function toggleMenu() {
   document.getElementById("nav-dropdown").classList.toggle("show");
 }
+
 function logout() {
   auth.signOut().then(() => {
-    // Force the UI back to the login state immediately
     document
       .querySelectorAll("main > section")
       .forEach((s) => (s.style.display = "none"));
     document.getElementById("auth-section").style.display = "block";
     document.getElementById("main-nav").style.display = "none";
-
-    // Clear inputs so the next user doesn't see old data
     document.getElementById("username").value = "";
     document.getElementById("password").value = "";
   });
@@ -429,21 +487,18 @@ async function saveProfile() {
 
   try {
     const userRef = db.collection("profiles").doc(currentUser.uid);
-
-    // Update Firebase
     await userRef.update({
       firstName: newFname,
       lastName: newLname,
       "details.need": newNeed,
     });
 
-    // Update local state so the UI reflects changes immediately
     currentUser.firstName = newFname;
     currentUser.lastName = newLname;
     currentUser.details.need = newNeed;
 
     alert("Profile updated successfully!");
-    renderProfile(); // Refresh the view
+    renderProfile();
   } catch (e) {
     console.error("Error updating profile:", e);
     alert("Failed to update profile.");
@@ -455,7 +510,6 @@ async function renderOrgManagement() {
   container.innerHTML = "<p>Loading your listings...</p>";
 
   try {
-    // 1. Get only the listings created by THIS Organization
     const snapshot = await db
       .collection("resources")
       .where("authorId", "==", currentUser.uid)
@@ -466,27 +520,24 @@ async function renderOrgManagement() {
       return;
     }
 
-    container.innerHTML = ""; // Clear loader
+    container.innerHTML = "";
 
-    // 2. Loop through each listing
     for (const doc of snapshot.docs) {
       const res = doc.data();
       let rolesSectionHTML = "";
 
-      // 3. For each role in the listing, find the volunteers
       for (const pos of res.positions) {
         let volunteerListHTML = "";
 
         if (pos.volunteers && pos.volunteers.length > 0) {
-          // Fetch actual profile data for each UID in the array
           for (const vUid of pos.volunteers) {
             const vDoc = await db.collection("profiles").doc(vUid).get();
             const vData = vDoc.data();
             volunteerListHTML += `
-                            <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
-                                <strong>👤 ${vData.firstName} ${vData.lastName}</strong><br>
-                                <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span>
-                            </div>`;
+              <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
+                <strong>👤 ${vData.firstName} ${vData.lastName}</strong><br>
+                <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span>
+              </div>`;
           }
         } else {
           volunteerListHTML =
@@ -494,18 +545,18 @@ async function renderOrgManagement() {
         }
 
         rolesSectionHTML += `
-                    <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-                        <h4 style="margin: 0 0 5px 0;">${pos.roleName} (${pos.volunteers.length}/${pos.slots} filled)</h4>
-                        ${volunteerListHTML}
-                    </div>`;
+          <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+            <h4 style="margin: 0 0 5px 0;">${pos.roleName} (${pos.volunteers.length}/${pos.slots} filled)</h4>
+            ${volunteerListHTML}
+          </div>`;
       }
 
       container.innerHTML += `
-                <div class="resource-card" style="border-left: 5px solid #28a745; margin-bottom: 20px;">
-                    <h3 style="margin-top: 0;">${res.title}</h3>
-                    <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
-                    ${rolesSectionHTML}
-                </div>`;
+        <div class="resource-card" style="border-left: 5px solid #28a745; margin-bottom: 20px;">
+          <h3 style="margin-top: 0;">${res.title}</h3>
+          <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
+          ${rolesSectionHTML}
+        </div>`;
     }
   } catch (e) {
     console.error("Error loading roster:", e);
