@@ -1,4 +1,5 @@
 // --- 1. FIREBASE CONFIG ---
+// --- TESTING ---
 const firebaseConfig = {
     apiKey: "AIzaSyBJsqogYmqzRM_T9r03PvtPAsENe8Q2g3w",
     authDomain: "community-connect-8e9e2.firebaseapp.com",
