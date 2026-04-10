@@ -89,6 +89,20 @@
             rows="3"
           ></textarea>
 
+          <label>Event Date:</label>
+          <input type="date" id="post-date" />
+
+          <div style="display: flex; gap: 10px">
+            <div style="flex: 1">
+              <label>Start Time:</label>
+              <input type="time" id="post-time-start" />
+            </div>
+            <div style="flex: 1">
+              <label>End Time:</label>
+              <input type="time" id="post-time-end" />
+            </div>
+          </div>
+
           <div id="volunteer-positions-container"></div>
 
           <button
@@ -113,13 +127,44 @@
         <h2>Browse Listings</h2>
 
         <div class="filter-container" style="margin-bottom: 20px">
-          <label for="category-filter">Filter by Category:</label>
+          <label for="category-filter">Category:</label>
           <select id="category-filter" onchange="renderSearch()">
             <option value="all">All Categories</option>
             <option value="service">Service</option>
             <option value="event">Event</option>
             <option value="resource">Resource</option>
           </select>
+
+          <label for="date-filter" style="margin-left: 10px">Date:</label>
+          <input
+            type="date"
+            id="date-filter"
+            onchange="renderSearch()"
+            style="flex: 1"
+          />
+
+          <label for="time-filter" style="margin-left: 10px"
+            >Available at:</label
+          >
+          <input
+            type="time"
+            id="time-filter"
+            onchange="renderSearch()"
+            style="flex: 1"
+          />
+
+          <button
+            class="secondary-btn"
+            onclick="clearTimeFilters()"
+            style="
+              width: auto;
+              padding: 6px 12px;
+              margin: 0 0 0 8px;
+              font-size: 0.8em;
+            "
+          >
+            Clear
+          </button>
         </div>
 
         <div id="search-results"></div>

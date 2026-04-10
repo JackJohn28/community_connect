@@ -65,13 +65,25 @@ function updateRoleFields() {
       </div>
       ${
         role === "volunteer"
-          ? `<input type="text" id="reg-expertise" placeholder="Expertise (e.g. Nursing, Tech)">`
+          ? `<input type="text" id="reg-expertise" placeholder="Expertise (e.g. Nursing, Tech)">
+             <label style="margin-top:10px;">Your general availability:</label>
+             <div style="display: flex; gap: 10px; margin-top: 4px;">
+               <div style="flex:1;">
+                 <label style="font-size:0.75em;">Available from</label>
+                 <input type="time" id="reg-avail-start">
+               </div>
+               <div style="flex:1;">
+                 <label style="font-size:0.75em;">Available until</label>
+                 <input type="time" id="reg-avail-end">
+               </div>
+             </div>`
           : `<input type="text" id="reg-care-need" placeholder="Primary Care Need">`
       }`;
   } else if (role === "org") {
     container.innerHTML = `
       <input type="text" id="reg-org-name" placeholder="Organization Name">
-      <input type="text" id="reg-website" placeholder="Website URL">`;
+      <input type="text" id="reg-website" placeholder="Website URL">
+      <textarea id="reg-org-desc" placeholder="Brief description of your organization" rows="2"></textarea>`;
   }
 }
 
@@ -99,15 +111,23 @@ async function handleAuth() {
         profileData.orgName = document.getElementById("reg-org-name").value;
         profileData.details.website =
           document.getElementById("reg-website").value;
+        profileData.details.description =
+          document.getElementById("reg-org-desc").value;
       } else {
         profileData.firstName = document.getElementById("reg-fname").value;
         profileData.lastName = document.getElementById("reg-lname").value;
-        if (role === "volunteer")
+        if (role === "volunteer") {
           profileData.details.expertise =
             document.getElementById("reg-expertise").value;
-        else
+          // 502: store volunteer's general availability window
+          profileData.details.availStart =
+            document.getElementById("reg-avail-start").value;
+          profileData.details.availEnd =
+            document.getElementById("reg-avail-end").value;
+        } else {
           profileData.details.need =
             document.getElementById("reg-care-need").value;
+        }
       }
       await db.collection("profiles").doc(userCred.user.uid).set(profileData);
     } else {
@@ -159,7 +179,6 @@ function renderDashboard() {
   document.getElementById("dash-title").innerText = `Hello, ${name}!`;
   const btnContainer = document.getElementById("action-buttons");
 
-  // Role-specific tips
   const tips = {
     volunteer: [
       {
@@ -215,7 +234,6 @@ function renderDashboard() {
   };
 
   const roleTips = tips[currentUser.role] || tips.volunteer;
-
   const tipsHTML = `
     <div class="tips-grid">
       ${roleTips
@@ -257,11 +275,33 @@ function renderProfile() {
     roleSpecificHTML = `
       <p><strong>Organization:</strong> ${currentUser.orgName || "Not Set"}</p>
       <p><strong>Website:</strong> <a href="${currentUser.details?.website || "#"}" target="_blank">${currentUser.details?.website || "No website listed"}</a></p>
+      <p><strong>Description:</strong> ${currentUser.details?.description || "No description listed"}</p>
     `;
   } else if (currentUser.role === "volunteer") {
+    // 502: show volunteer's availability in their profile, with edit support
     roleSpecificHTML = `
-      <p><strong>Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
-      <p><strong>Expertise:</strong> ${currentUser.details?.expertise || "None listed"}</p>
+      <div id="volunteer-view-mode">
+        <p><strong>Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
+        <p><strong>Expertise:</strong> ${currentUser.details?.expertise || "None listed"}</p>
+        <p><strong>Available:</strong> ${formatTimeRange(currentUser.details?.availStart, currentUser.details?.availEnd)}</p>
+        <button class="secondary-btn" onclick="toggleVolunteerEdit(true)" style="margin-top:10px;">Edit Profile Details</button>
+      </div>
+      <div id="volunteer-edit-mode" style="display:none;">
+        <label>First Name:</label>
+        <input type="text" id="edit-vol-fname" value="${currentUser.firstName}">
+        <label>Last Name:</label>
+        <input type="text" id="edit-vol-lname" value="${currentUser.lastName}">
+        <label>Expertise:</label>
+        <input type="text" id="edit-vol-expertise" value="${currentUser.details?.expertise || ""}">
+        <label>Available from:</label>
+        <input type="time" id="edit-vol-avail-start" value="${currentUser.details?.availStart || ""}">
+        <label>Available until:</label>
+        <input type="time" id="edit-vol-avail-end" value="${currentUser.details?.availEnd || ""}">
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button class="primary-btn" onclick="saveVolunteerProfile()">Save Changes</button>
+          <button class="secondary-btn" onclick="toggleVolunteerEdit(false)">Cancel</button>
+        </div>
+      </div>
     `;
   } else if (currentUser.role === "caregiver") {
     roleSpecificHTML = `
@@ -295,6 +335,113 @@ function renderProfile() {
   `;
 }
 
+// --- 502 HELPERS: time formatting and filtering ---
+
+// Format a HH:MM time string to 12-hour display
+function formatTime(t) {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function formatTimeRange(start, end) {
+  const s = formatTime(start);
+  const e = formatTime(end);
+  if (!s && !e) return "Not specified";
+  if (s && e) return `${s} – ${e}`;
+  return s || e;
+}
+
+// Format a YYYY-MM-DD date string to a readable form
+function formatDate(d) {
+  if (!d) return null;
+  const [year, month, day] = d.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// Returns true if the listing's time window overlaps with the requested filter time
+function listingMatchesTimeFilter(listing, filterDate, filterTime) {
+  // If no filters are set, always match
+  if (!filterDate && !filterTime) return true;
+
+  // Date filter: listing must have a date, and it must match
+  if (filterDate) {
+    if (!listing.eventDate) return false;
+    if (listing.eventDate !== filterDate) return false;
+  }
+
+  // Time filter: listing's time window must contain the requested time
+  if (filterTime) {
+    if (!listing.eventTimeStart || !listing.eventTimeEnd) return false;
+    // Compare as strings — HH:MM format compares lexicographically correctly
+    if (
+      filterTime < listing.eventTimeStart ||
+      filterTime > listing.eventTimeEnd
+    )
+      return false;
+  }
+
+  return true;
+}
+
+function clearTimeFilters() {
+  document.getElementById("date-filter").value = "";
+  document.getElementById("time-filter").value = "";
+  renderSearch();
+}
+
+// --- VOLUNTEER PROFILE EDIT (302/301 support) ---
+function toggleVolunteerEdit(isEditing) {
+  document.getElementById("volunteer-view-mode").style.display = isEditing
+    ? "none"
+    : "block";
+  document.getElementById("volunteer-edit-mode").style.display = isEditing
+    ? "block"
+    : "none";
+}
+
+async function saveVolunteerProfile() {
+  const newFname = document.getElementById("edit-vol-fname").value.trim();
+  const newLname = document.getElementById("edit-vol-lname").value.trim();
+  const newExpertise = document
+    .getElementById("edit-vol-expertise")
+    .value.trim();
+  const newAvailStart = document.getElementById("edit-vol-avail-start").value;
+  const newAvailEnd = document.getElementById("edit-vol-avail-end").value;
+
+  if (!newFname || !newLname) return alert("Names cannot be empty");
+
+  try {
+    const userRef = db.collection("profiles").doc(currentUser.uid);
+    await userRef.update({
+      firstName: newFname,
+      lastName: newLname,
+      "details.expertise": newExpertise,
+      "details.availStart": newAvailStart,
+      "details.availEnd": newAvailEnd,
+    });
+    currentUser.firstName = newFname;
+    currentUser.lastName = newLname;
+    currentUser.details.expertise = newExpertise;
+    currentUser.details.availStart = newAvailStart;
+    currentUser.details.availEnd = newAvailEnd;
+    alert("Profile updated successfully!");
+    renderProfile();
+  } catch (e) {
+    console.error("Error updating volunteer profile:", e);
+    alert("Failed to update profile.");
+  }
+}
+
+// --- ADD VOLUNTEER ROLE FIELD ---
 function addVolunteerRoleField() {
   roleCount++;
   const container = document.getElementById("volunteer-positions-container");
@@ -320,10 +467,16 @@ function addVolunteerRoleField() {
   container.appendChild(roleDiv);
 }
 
+// --- SUBMIT LISTING (502: saves eventDate, eventTimeStart, eventTimeEnd) ---
 async function submitListing() {
   const title = document.getElementById("post-title").value.trim();
   const desc = document.getElementById("post-desc").value.trim();
   const type = document.getElementById("post-type").value;
+
+  // 502: read the new time fields
+  const eventDate = document.getElementById("post-date").value;
+  const eventTimeStart = document.getElementById("post-time-start").value;
+  const eventTimeEnd = document.getElementById("post-time-end").value;
 
   if (!title || !desc) return alert("Title and Description are required");
 
@@ -337,7 +490,6 @@ async function submitListing() {
     const rSkill = group.querySelector(".vol-skill")?.value || "None";
     const rSlots = parseInt(group.querySelector(".vol-slots")?.value) || 1;
     const rUrgency = group.querySelector(".vol-urgency")?.value || "low";
-
     positions.push({
       roleName: rName,
       roleDesc: rDesc,
@@ -355,12 +507,23 @@ async function submitListing() {
       type,
       author: currentUser.orgName || currentUser.username,
       authorId: currentUser.uid,
+      // 1002: store org name and description for display on listing cards
+      orgName: currentUser.orgName || currentUser.username,
+      orgDescription: currentUser.details?.description || "",
+      orgWebsite: currentUser.details?.website || "",
       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
       positions: positions,
+      // 502: store event date and time
+      eventDate: eventDate || "",
+      eventTimeStart: eventTimeStart || "",
+      eventTimeEnd: eventTimeEnd || "",
     });
     alert("Published!");
     document.getElementById("post-title").value = "";
     document.getElementById("post-desc").value = "";
+    document.getElementById("post-date").value = "";
+    document.getElementById("post-time-start").value = "";
+    document.getElementById("post-time-end").value = "";
     document.getElementById("volunteer-positions-container").innerHTML = "";
     showSection("search");
   } catch (e) {
@@ -368,15 +531,19 @@ async function submitListing() {
   }
 }
 
+// --- RENDER SEARCH (502: time filtering; 1002: org info on cards) ---
 async function renderSearch() {
   const results = document.getElementById("search-results");
   const filterValue = document.getElementById("category-filter").value;
+
+  // 502: read time filter values
+  const filterDate = document.getElementById("date-filter").value;
+  const filterTime = document.getElementById("time-filter").value;
 
   results.innerHTML = "Loading...";
 
   try {
     let query = db.collection("resources");
-
     if (filterValue !== "all") {
       query = query.where("type", "==", filterValue);
     }
@@ -384,13 +551,25 @@ async function renderSearch() {
     const snapshot = await query.orderBy("timestamp", "desc").get();
     results.innerHTML = "";
 
-    if (snapshot.empty) {
-      results.innerHTML = `<p style="text-align:center; color:#666;">No ${filterValue}s found.</p>`;
+    // 502: apply client-side time filter after Firestore fetch
+    const docs = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (listingMatchesTimeFilter(data, filterDate, filterTime)) {
+        docs.push({ id: doc.id, data });
+      }
+    });
+
+    if (docs.length === 0) {
+      const msg =
+        filterDate || filterTime
+          ? `<p style="text-align:center; color:#666;">No listings found matching your date/time filter. <a href="#" onclick="clearTimeFilters(); return false;">Clear filters</a></p>`
+          : `<p style="text-align:center; color:#666;">No ${filterValue === "all" ? "" : filterValue + "s"} found.</p>`;
+      results.innerHTML = msg;
       return;
     }
 
-    snapshot.forEach((doc) => {
-      const res = doc.data();
+    for (const { id: docId, data: res } of docs) {
       let rolesHTML = "";
 
       if (res.positions && res.positions.length > 0) {
@@ -411,7 +590,7 @@ async function renderSearch() {
                   currentUser.role === "volunteer"
                     ? `
                   <button class="primary-btn" style="width:auto; padding:5px 10px;"
-                    onclick="signUpForRole('${doc.id}', ${idx})" ${isFull || userSigned ? "disabled" : ""}>
+                    onclick="signUpForRole('${docId}', ${idx})" ${isFull || userSigned ? "disabled" : ""}>
                     ${userSigned ? "Joined" : isFull ? "Full" : "Join"}
                   </button>`
                     : ""
@@ -421,15 +600,51 @@ async function renderSearch() {
         });
       }
 
+      // 502: build date/time badge for the listing card
+      let timeBadgeHTML = "";
+      if (res.eventDate || res.eventTimeStart) {
+        const datePart = res.eventDate ? `📅 ${formatDate(res.eventDate)}` : "";
+        const timePart =
+          res.eventTimeStart || res.eventTimeEnd
+            ? `🕐 ${formatTimeRange(res.eventTimeStart, res.eventTimeEnd)}`
+            : "";
+        timeBadgeHTML = `
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin: 6px 0 4px; font-size:0.82em; color:#4a6580;">
+            ${datePart ? `<span>${datePart}</span>` : ""}
+            ${timePart ? `<span>${timePart}</span>` : ""}
+          </div>`;
+      }
+
+      // 1002: build org info block for the listing card
+      // Show org name, description, and a link to their website
+      const orgWebsite = res.orgWebsite || "";
+      const orgDesc = res.orgDescription || "";
+      const orgInfoHTML = `
+        <div class="org-info-block">
+          <div class="org-info-header">
+            <div class="org-avatar">${(res.orgName || res.author || "?")[0].toUpperCase()}</div>
+            <div>
+              <span class="org-info-name">${res.orgName || res.author}</span>
+              ${
+                orgWebsite
+                  ? `<a href="${orgWebsite}" target="_blank" class="org-info-link">Visit website ↗</a>`
+                  : ""
+              }
+            </div>
+          </div>
+          ${orgDesc ? `<p class="org-info-desc">${orgDesc}</p>` : ""}
+        </div>`;
+
       results.innerHTML += `
         <div class="resource-card">
           <span class="tag ${res.type}">${res.type}</span>
           <h3>${res.title}</h3>
           <p>${res.desc}</p>
+          ${timeBadgeHTML}
           ${rolesHTML}
-          <p><small>By: ${res.author}</small></p>
+          ${orgInfoHTML}
         </div>`;
-    });
+    }
   } catch (e) {
     console.error("Error filtering:", e);
     results.innerHTML =
@@ -492,11 +707,9 @@ async function saveProfile() {
       lastName: newLname,
       "details.need": newNeed,
     });
-
     currentUser.firstName = newFname;
     currentUser.lastName = newLname;
     currentUser.details.need = newNeed;
-
     alert("Profile updated successfully!");
     renderProfile();
   } catch (e) {
@@ -528,7 +741,6 @@ async function renderOrgManagement() {
 
       for (const pos of res.positions) {
         let volunteerListHTML = "";
-
         if (pos.volunteers && pos.volunteers.length > 0) {
           for (const vUid of pos.volunteers) {
             const vDoc = await db.collection("profiles").doc(vUid).get();
@@ -536,7 +748,8 @@ async function renderOrgManagement() {
             volunteerListHTML += `
               <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
                 <strong>👤 ${vData.firstName} ${vData.lastName}</strong><br>
-                <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span>
+                <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span><br>
+                <span style="color: #666;">Availability: ${formatTimeRange(vData.details?.availStart, vData.details?.availEnd)}</span>
               </div>`;
           }
         } else {
@@ -551,10 +764,19 @@ async function renderOrgManagement() {
           </div>`;
       }
 
+      // 502: show the event date/time on org management cards too
+      let timeLine = "";
+      if (res.eventDate || res.eventTimeStart) {
+        const datePart = res.eventDate ? formatDate(res.eventDate) : "";
+        const timePart = formatTimeRange(res.eventTimeStart, res.eventTimeEnd);
+        timeLine = `<p style="font-size:0.82em; color:#4a6580; margin:2px 0;">📅 ${datePart}${datePart && timePart !== "Not specified" ? " · " : ""}${timePart !== "Not specified" ? "🕐 " + timePart : ""}</p>`;
+      }
+
       container.innerHTML += `
         <div class="resource-card" style="border-left: 5px solid #28a745; margin-bottom: 20px;">
           <h3 style="margin-top: 0;">${res.title}</h3>
           <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
+          ${timeLine}
           ${rolesSectionHTML}
         </div>`;
     }
