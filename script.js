@@ -569,65 +569,23 @@ async function renderSearch() {
       return;
     }
 
-<<<<<<< HEAD
     for (const { id: docId, data: res } of docs) {
-=======
-    snapshot.forEach((doc) => {
-      const res = doc.data();
-      const isClosed = res.closed === true;
->>>>>>> 95f869c91cea272b801b565ee429f2d00a74b8d3
       let rolesHTML = "";
 
       if (res.positions && res.positions.length > 0) {
         res.positions.forEach((pos, idx) => {
           const filled = (pos.volunteers || []).length;
           const isFull = filled >= pos.slots;
-          const isClosed_pos = pos.closed === true;
           const userSigned = (pos.volunteers || []).includes(currentUser.uid);
 
-          // Determine position status
-          let statusBadge = "";
-          let cardClass = "position-card";
-          if (isClosed_pos) {
-            statusBadge = `<span class="status-badge status-closed">Closed</span>`;
-            cardClass += " position-closed";
-          } else if (isFull) {
-            statusBadge = `<span class="status-badge status-filled">Filled</span>`;
-            cardClass += " position-filled";
-          } else if (pos.urgency === "high") {
-            statusBadge = `<span class="status-badge status-urgent">🔴 Urgent</span>`;
-            cardClass += " position-urgent";
-          }
-
-          // Join button logic
-          let joinBtn = "";
-          if (currentUser.role === "volunteer") {
-            if (userSigned) {
-              joinBtn = `<button class="join-btn joined" disabled>✓ Joined</button>`;
-            } else if (isClosed_pos) {
-              joinBtn = `<button class="join-btn closed-btn" disabled>Closed</button>`;
-            } else if (isFull) {
-              joinBtn = `<button class="join-btn full-btn" disabled>Full</button>`;
-            } else {
-              joinBtn = `<button class="join-btn" onclick="signUpForRole('${doc.id}', ${idx})">Join</button>`;
-            }
-          }
-
           rolesHTML += `
-            <div class="${cardClass}">
-              <div class="position-header">
-                <div class="position-info">
-                  <div class="position-title-row">
-                    <h4>${pos.roleName}</h4>
-                    <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span>
-                    ${statusBadge}
-                  </div>
-                  <p class="position-desc">${pos.roleDesc}</p>
-                  <p class="position-slots"><b>${filled} / ${pos.slots} slots filled</b>
-                    ${pos.skill && pos.skill !== "None" ? `· Skill: ${pos.skill}` : ""}
-                  </p>
+            <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span></h4>
+                  <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
+                  <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
                 </div>
-<<<<<<< HEAD
                 ${
                   currentUser.role === "volunteer"
                     ? `
@@ -637,15 +595,11 @@ async function renderSearch() {
                   </button>`
                     : ""
                 }
-=======
-                ${joinBtn}
->>>>>>> 95f869c91cea272b801b565ee429f2d00a74b8d3
               </div>
             </div>`;
         });
       }
 
-<<<<<<< HEAD
       // 502: build date/time badge for the listing card
       let timeBadgeHTML = "";
       if (res.eventDate || res.eventTimeStart) {
@@ -680,31 +634,15 @@ async function renderSearch() {
           </div>
           ${orgDesc ? `<p class="org-info-desc">${orgDesc}</p>` : ""}
         </div>`;
-=======
-      // Card border color based on listing status
-      const cardBorderColor = isClosed ? "#adb5bd" : "var(--primary-light)";
-      const closedBanner = isClosed
-        ? `<div class="listing-closed-banner">🔒 This listing is closed — no new sign-ups accepted</div>`
-        : "";
->>>>>>> 95f869c91cea272b801b565ee429f2d00a74b8d3
 
       results.innerHTML += `
-        <div class="resource-card" style="border-left-color: ${cardBorderColor}; ${isClosed ? "opacity:0.75;" : ""}">
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span class="tag ${res.type}">${res.type}</span>
-            ${isClosed ? `<span class="status-badge status-closed">Listing Closed</span>` : ""}
-          </div>
+        <div class="resource-card">
+          <span class="tag ${res.type}">${res.type}</span>
           <h3>${res.title}</h3>
           <p>${res.desc}</p>
-<<<<<<< HEAD
           ${timeBadgeHTML}
           ${rolesHTML}
           ${orgInfoHTML}
-=======
-          ${closedBanner}
-          ${rolesHTML}
-          <p style="margin-top:10px;"><small>By: ${res.author}</small></p>
->>>>>>> 95f869c91cea272b801b565ee429f2d00a74b8d3
         </div>`;
     }
   } catch (e) {
@@ -799,68 +737,33 @@ async function renderOrgManagement() {
 
     for (const doc of snapshot.docs) {
       const res = doc.data();
-      const isListingClosed = res.closed === true;
       let rolesSectionHTML = "";
 
-      for (let posIdx = 0; posIdx < res.positions.length; posIdx++) {
-        const pos = res.positions[posIdx];
-        const isFull = (pos.volunteers || []).length >= pos.slots;
-        const isPosClose = pos.closed === true;
+      for (const pos of res.positions) {
         let volunteerListHTML = "";
         if (pos.volunteers && pos.volunteers.length > 0) {
           for (const vUid of pos.volunteers) {
             const vDoc = await db.collection("profiles").doc(vUid).get();
             const vData = vDoc.data();
             volunteerListHTML += `
-<<<<<<< HEAD
               <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
                 <strong>👤 ${vData.firstName} ${vData.lastName}</strong><br>
                 <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span><br>
                 <span style="color: #666;">Availability: ${formatTimeRange(vData.details?.availStart, vData.details?.availEnd)}</span>
-=======
-              <div class="volunteer-entry">
-                <strong>👤 ${vData.firstName} ${vData.lastName}</strong>
-                <span>Expertise: ${vData.details?.expertise || "Not specified"}</span>
->>>>>>> 95f869c91cea272b801b565ee429f2d00a74b8d3
               </div>`;
           }
         } else {
-          volunteerListHTML = "<p class='no-applicants'>No applicants yet.</p>";
-        }
-
-        // Status label for position
-        let posStatusBadge = "";
-        if (isPosClose) {
-          posStatusBadge = `<span class="status-badge status-closed">Closed</span>`;
-        } else if (isFull) {
-          posStatusBadge = `<span class="status-badge status-filled">Filled</span>`;
-        } else if (pos.urgency === "high") {
-          posStatusBadge = `<span class="status-badge status-urgent">Urgent</span>`;
+          volunteerListHTML =
+            "<p style='font-size: 0.8em; color: #999;'>No applicants yet.</p>";
         }
 
         rolesSectionHTML += `
-          <div class="org-position-card ${isPosClose ? "position-closed" : ""}">
-            <div class="org-position-header">
-              <div>
-                <span class="org-position-title">${pos.roleName}</span>
-                <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span>
-                ${posStatusBadge}
-                <span class="slots-info">${(pos.volunteers || []).length}/${pos.slots} filled</span>
-              </div>
-              ${
-                !isListingClosed
-                  ? `
-                <button class="toggle-pos-btn" onclick="togglePositionClosed('${doc.id}', ${posIdx}, ${isPosClose})">
-                  ${isPosClose ? "↩ Reopen" : "🔒 Close Position"}
-                </button>`
-                  : ""
-              }
-            </div>
+          <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+            <h4 style="margin: 0 0 5px 0;">${pos.roleName} (${pos.volunteers.length}/${pos.slots} filled)</h4>
             ${volunteerListHTML}
           </div>`;
       }
 
-<<<<<<< HEAD
       // 502: show the event date/time on org management cards too
       let timeLine = "";
       if (res.eventDate || res.eventTimeStart) {
@@ -874,67 +777,11 @@ async function renderOrgManagement() {
           <h3 style="margin-top: 0;">${res.title}</h3>
           <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
           ${timeLine}
-=======
-      const borderColor = isListingClosed ? "#adb5bd" : "#28a745";
-      container.innerHTML += `
-        <div class="resource-card org-listing-card" style="border-left: 5px solid ${borderColor}; ${isListingClosed ? "opacity:0.8;" : ""}">
-          <div class="org-listing-header">
-            <div>
-              <h3 style="margin: 0 0 4px 0;">${res.title}</h3>
-              <p style="font-size: 0.85em; color: #666; margin:0;">Type: ${res.type.toUpperCase()}</p>
-            </div>
-            <div class="org-listing-actions">
-              ${
-                isListingClosed
-                  ? `<span class="status-badge status-closed">Listing Closed</span>
-                   <button class="reopen-btn" onclick="toggleListingClosed('${doc.id}', true)">↩ Reopen</button>`
-                  : `<button class="close-listing-btn" onclick="toggleListingClosed('${doc.id}', false)">🔒 Close Listing</button>`
-              }
-            </div>
-          </div>
->>>>>>> 95f869c91cea272b801b565ee429f2d00a74b8d3
           ${rolesSectionHTML}
         </div>`;
     }
   } catch (e) {
     console.error("Error loading roster:", e);
     container.innerHTML = "<p>Error loading data. Check console.</p>";
-  }
-}
-
-// --- REQ 6: CLOSE / REOPEN A FULL LISTING ---
-async function toggleListingClosed(docId, isCurrentlyClosed) {
-  const confirmMsg = isCurrentlyClosed
-    ? "Reopen this listing so volunteers can sign up again?"
-    : "Close this listing? Volunteers will no longer be able to sign up.";
-  if (!confirm(confirmMsg)) return;
-
-  try {
-    await db
-      .collection("resources")
-      .doc(docId)
-      .update({ closed: !isCurrentlyClosed });
-    renderOrgManagement();
-  } catch (e) {
-    alert("Error updating listing: " + e.message);
-  }
-}
-
-// --- REQ 6: CLOSE / REOPEN A SINGLE POSITION ---
-async function togglePositionClosed(docId, posIdx, isCurrentlyClosed) {
-  const confirmMsg = isCurrentlyClosed
-    ? "Reopen this position?"
-    : "Close this position? Volunteers will no longer be able to join.";
-  if (!confirm(confirmMsg)) return;
-
-  try {
-    const docRef = db.collection("resources").doc(docId);
-    const snap = await docRef.get();
-    const positions = snap.data().positions;
-    positions[posIdx].closed = !isCurrentlyClosed;
-    await docRef.update({ positions });
-    renderOrgManagement();
-  } catch (e) {
-    alert("Error updating position: " + e.message);
   }
 }
