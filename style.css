@@ -762,3 +762,75 @@ label {
   margin: 0;
   line-height: 1.5;
 }
+
+/* ─── HOURS LOG (901/902) ─── */
+.hours-total-card {
+  background: var(--primary);
+  color: white;
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hours-total-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+.hours-total-value {
+  font-family: "DM Serif Display", serif;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.hours-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hours-log-entry {
+  background: var(--lighter);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 12px;
+  align-items: center;
+}
+
+.hours-log-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--dark);
+}
+
+.hours-log-role {
+  font-size: 0.78rem;
+  color: var(--mid);
+  margin-left: 6px;
+}
+
+.hours-log-meta {
+  font-size: 0.75rem;
+  color: #9ab0c8;
+  display: flex;
+  gap: 10px;
+}
+
+.hours-log-value {
+  grid-row: 1 / 3;
+  grid-column: 2;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--primary-light);
+  text-align: right;
+}

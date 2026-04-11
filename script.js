@@ -186,6 +186,9 @@ function showSection(id) {
     if (id === "profile") {
       if (typeof renderProfile === "function") {
         renderProfile();
+        if (currentUser.role === "volunteer") {
+          renderVolunteerHours();
+        }
       } else {
         console.error("renderProfile function is missing!");
       }
@@ -342,6 +345,10 @@ function renderProfile() {
           <button class="secondary-btn" onclick="toggleVolunteerEdit(false)">Cancel</button>
         </div>
       </div>
+      <div style="margin-top: 24px; border-top: 2px solid #f1f4f9; padding-top: 16px;">
+        <h3 style="font-size:1rem; font-weight:600; color:#1a3a5c; margin-bottom:10px;">My Volunteer Hours</h3>
+        <div id="volunteer-hours-container"></div>
+      </div>
     `;
   } else if (currentUser.role === "caregiver") {
     roleSpecificHTML = `
@@ -464,6 +471,7 @@ async function saveVolunteerProfile() {
     currentUser.details.availEnd = newAvailEnd;
     alert("Profile updated successfully!");
     renderProfile();
+    renderVolunteerHours();
   } catch (e) {
     console.error("Error updating volunteer profile:", e);
     alert("Failed to update profile.");
@@ -667,7 +675,6 @@ async function renderSearch() {
           const isFull = filled >= pos.slots;
           const userSigned = (pos.volunteers || []).includes(currentUser.uid);
 
-          // 301: skill match badge for volunteers
           const skillRequired =
             pos.skill && pos.skill !== "None" ? pos.skill : null;
           const volunteerExpertise = currentUser.details?.expertise || "";
@@ -711,7 +718,6 @@ async function renderSearch() {
         });
       }
 
-      // Date/time badge
       let timeBadgeHTML = "";
       if (res.eventDate || res.eventTimeStart) {
         const datePart = res.eventDate ? `📅 ${formatDate(res.eventDate)}` : "";
@@ -726,7 +732,6 @@ async function renderSearch() {
           </div>`;
       }
 
-      // Org info block
       const orgWebsite = res.orgWebsite || "";
       const orgDesc = res.orgDescription || "";
       const orgInfoHTML = `
@@ -775,7 +780,7 @@ async function signUpForRole(docId, roleIdx) {
   }
 }
 
-// --- 13. ORG MANAGEMENT (301: skill match on applicants) ---
+// --- 13. ORG MANAGEMENT (301: skill match on applicants, 901: log hours button) ---
 async function renderOrgManagement() {
   const container = document.getElementById("my-listings-container");
   container.innerHTML = "<p>Loading your listings...</p>";
@@ -810,7 +815,6 @@ async function renderOrgManagement() {
                 const vData = vDoc.data();
                 if (!vData.details) vData.details = {};
 
-                // 301: skill match indicator for org reviewing applicants
                 const vExpertise = vData.details?.expertise || "";
                 const reqSkill =
                   pos.skill && pos.skill !== "None" ? pos.skill : null;
@@ -827,13 +831,25 @@ async function renderOrgManagement() {
                     </span>`
                   : "";
 
+                const vFullName =
+                  `${vData.firstName || ""} ${vData.lastName || ""}`.trim();
                 volunteerListHTML += `
                   <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
-                    <strong>👤 ${vData.firstName || ""} ${vData.lastName || ""}</strong>
-                    ${vMatchBadge}
-                    <br>
-                    <span style="color: #666;">Expertise: ${vExpertise || "Not specified"}</span><br>
-                    <span style="color: #666;">Availability: ${formatTimeRange(vData.details?.availStart, vData.details?.availEnd)}</span>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                      <div>
+                        <strong>👤 ${vFullName}</strong>
+                        ${vMatchBadge}
+                        <br>
+                        <span style="color: #666;">Expertise: ${vExpertise || "Not specified"}</span><br>
+                        <span style="color: #666;">Availability: ${formatTimeRange(vData.details?.availStart, vData.details?.availEnd)}</span>
+                      </div>
+                      <button
+                        class="primary-btn"
+                        style="width:auto; padding:4px 10px; font-size:0.78em; white-space:nowrap; margin-top:0;"
+                        onclick="logHours('${vUid}', '${vFullName.replace(/'/g, "\\'")}', '${res.title.replace(/'/g, "\\'")}', '${pos.roleName.replace(/'/g, "\\'")}')">
+                        + Log Hours
+                      </button>
+                    </div>
                   </div>`;
               } else {
                 volunteerListHTML += `<p style="font-size:0.8em; color:#999;">Volunteer profile not found.</p>`;
@@ -885,7 +901,95 @@ async function renderOrgManagement() {
   }
 }
 
-// --- 14. NAV HELPERS ---
+// --- 14. HOUR LOGGING (901/902) ---
+async function logHours(volunteerUid, volunteerName, listingTitle, roleName) {
+  const hoursStr = prompt(
+    `Log hours for ${volunteerName} on "${roleName}" (${listingTitle}):\nEnter number of hours:`,
+  );
+  if (hoursStr === null) return;
+  const hours = parseFloat(hoursStr);
+  if (isNaN(hours) || hours <= 0)
+    return alert("Please enter a valid number of hours.");
+
+  try {
+    await db
+      .collection("profiles")
+      .doc(volunteerUid)
+      .collection("hours")
+      .add({
+        hours: hours,
+        listingTitle: listingTitle,
+        roleName: roleName,
+        loggedBy: currentUser.orgName || currentUser.username,
+        loggedByUid: currentUser.uid,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    alert(`${hours} hour(s) logged for ${volunteerName}.`);
+  } catch (e) {
+    console.error("Error logging hours:", e);
+    alert("Failed to log hours: " + e.message);
+  }
+}
+
+async function renderVolunteerHours() {
+  const container = document.getElementById("volunteer-hours-container");
+  if (!container) return;
+  container.innerHTML = `<p style="font-size:0.85em; color:#666;">Loading hours...</p>`;
+
+  try {
+    const snapshot = await db
+      .collection("profiles")
+      .doc(currentUser.uid)
+      .collection("hours")
+      .orderBy("timestamp", "desc")
+      .get();
+
+    if (snapshot.empty) {
+      container.innerHTML = `<p style="font-size:0.85em; color:#999;">No hours logged yet.</p>`;
+      return;
+    }
+
+    let total = 0;
+    let logHTML = "";
+
+    snapshot.forEach((doc) => {
+      const entry = doc.data();
+      total += entry.hours || 0;
+      const date = entry.timestamp?.toDate
+        ? entry.timestamp.toDate().toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "Date pending";
+
+      logHTML += `
+        <div class="hours-log-entry">
+          <div>
+            <span class="hours-log-title">${entry.listingTitle}</span>
+            <span class="hours-log-role">${entry.roleName}</span>
+          </div>
+          <div class="hours-log-meta">
+            <span>Approved by ${entry.loggedBy}</span>
+            <span>${date}</span>
+          </div>
+          <div class="hours-log-value">+${entry.hours} hr${entry.hours !== 1 ? "s" : ""}</div>
+        </div>`;
+    });
+
+    container.innerHTML = `
+      <div class="hours-total-card">
+        <span class="hours-total-label">Total hours volunteered</span>
+        <span class="hours-total-value">${total.toFixed(1)}</span>
+      </div>
+      <div class="hours-log-list">${logHTML}</div>`;
+  } catch (e) {
+    console.error("Error loading hours:", e);
+    container.innerHTML = `<p style="color:#c53030; font-size:0.85em;">Error loading hours.</p>`;
+  }
+}
+
+// --- 15. NAV HELPERS ---
 function toggleMenu() {
   document.getElementById("nav-dropdown").classList.toggle("show");
 }
