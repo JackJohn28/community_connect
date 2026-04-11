@@ -19,19 +19,32 @@ let roleCount = 0;
 
 // --- 3. PERSISTENCE OBSERVER ---
 auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    const doc = await db.collection("profiles").doc(user.uid).get();
-    if (doc.exists) {
-      currentUser = { uid: user.uid, ...doc.data() };
-      initApp();
+  try {
+    if (user) {
+      const doc = await db.collection("profiles").doc(user.uid).get();
+      if (doc.exists) {
+        const data = doc.data();
+        // Ensure details always exists so optional chaining never fails downstream
+        if (!data.details) data.details = {};
+        currentUser = { uid: user.uid, ...data };
+        initApp();
+      }
+    } else {
+      currentUser = null;
+      document
+        .querySelectorAll("main > section")
+        .forEach((s) => (s.style.display = "none"));
+      document.getElementById("auth-section").style.display = "block";
+      document.getElementById("main-nav").style.display = "none";
     }
-  } else {
-    currentUser = null;
-    document
-      .querySelectorAll("main > section")
-      .forEach((s) => (s.style.display = "none"));
-    document.getElementById("auth-section").style.display = "block";
-    document.getElementById("main-nav").style.display = "none";
+  } catch (e) {
+    console.error("Auth state change error:", e);
+    // Show the error on the login screen so it's visible
+    const errorEl = document.getElementById("auth-error");
+    if (errorEl) {
+      errorEl.innerText = "Error loading profile: " + e.message;
+      errorEl.style.display = "block";
+    }
   }
 });
 
