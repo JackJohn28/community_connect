@@ -112,11 +112,14 @@ async function handleAuth() {
     document.getElementById("reg-fields").style.display === "block";
 
   try {
+    let uid;
+
     if (isRegMode) {
       const userCred = await auth.createUserWithEmailAndPassword(
         fakeEmail,
         pass,
       );
+      uid = userCred.user.uid;
       const role = document.getElementById("user-role").value;
       let profileData = { username: userIn, role: role, details: {} };
 
@@ -132,7 +135,6 @@ async function handleAuth() {
         if (role === "volunteer") {
           profileData.details.expertise =
             document.getElementById("reg-expertise").value;
-          // 502: store volunteer's general availability window
           profileData.details.availStart =
             document.getElementById("reg-avail-start").value;
           profileData.details.availEnd =
@@ -142,9 +144,24 @@ async function handleAuth() {
             document.getElementById("reg-care-need").value;
         }
       }
-      await db.collection("profiles").doc(userCred.user.uid).set(profileData);
+      await db.collection("profiles").doc(uid).set(profileData);
     } else {
-      await auth.signInWithEmailAndPassword(fakeEmail, pass);
+      const userCred = await auth.signInWithEmailAndPassword(fakeEmail, pass);
+      uid = userCred.user.uid;
+    }
+
+    // Directly load the profile and navigate after auth succeeds.
+    // The onAuthStateChanged observer alone is not reliable enough for immediate navigation
+    // because it fires asynchronously and can be blocked by Firestore rules or timing issues.
+    const doc = await db.collection("profiles").doc(uid).get();
+    if (doc.exists) {
+      const data = doc.data();
+      if (!data.details) data.details = {};
+      currentUser = { uid, ...data };
+      initApp();
+    } else {
+      errorEl.innerText = "Profile not found. Try registering first.";
+      errorEl.style.display = "block";
     }
   } catch (e) {
     errorEl.innerText = e.message;
