@@ -24,7 +24,6 @@ auth.onAuthStateChanged(async (user) => {
       const doc = await db.collection("profiles").doc(user.uid).get();
       if (doc.exists) {
         const data = doc.data();
-        // Ensure details always exists so optional chaining never fails downstream
         if (!data.details) data.details = {};
         currentUser = { uid: user.uid, ...data };
         initApp();
@@ -39,7 +38,6 @@ auth.onAuthStateChanged(async (user) => {
     }
   } catch (e) {
     console.error("Auth state change error:", e);
-    // Show the error on the login screen so it's visible
     const errorEl = document.getElementById("auth-error");
     if (errorEl) {
       errorEl.innerText = "Error loading profile: " + e.message;
@@ -150,9 +148,6 @@ async function handleAuth() {
       uid = userCred.user.uid;
     }
 
-    // Directly load the profile and navigate after auth succeeds.
-    // The onAuthStateChanged observer alone is not reliable enough for immediate navigation
-    // because it fires asynchronously and can be blocked by Firestore rules or timing issues.
     const doc = await db.collection("profiles").doc(uid).get();
     if (doc.exists) {
       const data = doc.data();
@@ -202,7 +197,7 @@ function showSection(id) {
   }
 }
 
-// --- 6. MULTI-ROLE LISTING LOGIC ---
+// --- 6. DASHBOARD ---
 function renderDashboard() {
   const name =
     currentUser.firstName || currentUser.orgName || currentUser.username;
@@ -295,6 +290,7 @@ function renderDashboard() {
   btnContainer.innerHTML += tipsHTML;
 }
 
+// --- 7. PROFILE ---
 function renderProfile() {
   const container = document.getElementById("profile-display");
   if (!currentUser || !container) return;
@@ -323,7 +319,6 @@ function renderProfile() {
       </div>
     `;
   } else if (currentUser.role === "volunteer") {
-    // 502: show volunteer's availability in their profile, with edit support
     roleSpecificHTML = `
       <div id="volunteer-view-mode">
         <p><strong>Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
@@ -380,9 +375,7 @@ function renderProfile() {
   `;
 }
 
-// --- 502 HELPERS: time formatting and filtering ---
-
-// Format a HH:MM time string to 12-hour display
+// --- 8. TIME / DATE HELPERS ---
 function formatTime(t) {
   if (!t) return null;
   const [h, m] = t.split(":").map(Number);
@@ -399,7 +392,6 @@ function formatTimeRange(start, end) {
   return s || e;
 }
 
-// Format a YYYY-MM-DD date string to a readable form
 function formatDate(d) {
   if (!d) return null;
   const [year, month, day] = d.split("-").map(Number);
@@ -412,28 +404,20 @@ function formatDate(d) {
   });
 }
 
-// Returns true if the listing's time window overlaps with the requested filter time
 function listingMatchesTimeFilter(listing, filterDate, filterTime) {
-  // If no filters are set, always match
   if (!filterDate && !filterTime) return true;
-
-  // Date filter: listing must have a date, and it must match
   if (filterDate) {
     if (!listing.eventDate) return false;
     if (listing.eventDate !== filterDate) return false;
   }
-
-  // Time filter: listing's time window must contain the requested time
   if (filterTime) {
     if (!listing.eventTimeStart || !listing.eventTimeEnd) return false;
-    // Compare as strings — HH:MM format compares lexicographically correctly
     if (
       filterTime < listing.eventTimeStart ||
       filterTime > listing.eventTimeEnd
     )
       return false;
   }
-
   return true;
 }
 
@@ -443,7 +427,7 @@ function clearTimeFilters() {
   renderSearch();
 }
 
-// --- VOLUNTEER PROFILE EDIT (302/301 support) ---
+// --- 9. PROFILE EDIT TOGGLES & SAVES ---
 function toggleVolunteerEdit(isEditing) {
   document.getElementById("volunteer-view-mode").style.display = isEditing
     ? "none"
@@ -520,249 +504,6 @@ async function saveOrgProfile() {
   }
 }
 
-// --- ADD VOLUNTEER ROLE FIELD ---
-function addVolunteerRoleField() {
-  roleCount++;
-  const container = document.getElementById("volunteer-positions-container");
-  const roleDiv = document.createElement("div");
-  roleDiv.className = "role-input-group";
-  roleDiv.innerHTML = `
-    <div style="border: 1px dashed #6e84a3; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; position: relative;">
-      <button type="button" onclick="this.parentElement.remove()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; cursor: pointer; color: red;">✕</button>
-      <h4 style="margin: 0 0 10px 0;">Volunteer Role</h4>
-      <input type="text" class="vol-role-name" placeholder="Role Name (e.g. Driver)">
-      <textarea class="vol-role-desc" placeholder="What will they do?" rows="2"></textarea>
-      <div style="display: flex; gap: 10px;">
-        <input type="text" class="vol-skill" placeholder="Skill Required" style="flex: 2;">
-        <input type="number" class="vol-slots" placeholder="Slots" style="flex: 1;">
-      </div>
-      <label style="font-size: 0.8em;">Urgency:</label>
-      <select class="vol-urgency">
-        <option value="low">Low</option>
-        <option value="medium">Medium</option>
-        <option value="high">High</option>
-      </select>
-    </div>`;
-  container.appendChild(roleDiv);
-}
-
-// --- SUBMIT LISTING (502: saves eventDate, eventTimeStart, eventTimeEnd) ---
-async function submitListing() {
-  const title = document.getElementById("post-title").value.trim();
-  const desc = document.getElementById("post-desc").value.trim();
-  const type = document.getElementById("post-type").value;
-
-  // 502: read the new time fields
-  const eventDate = document.getElementById("post-date").value;
-  const eventTimeStart = document.getElementById("post-time-start").value;
-  const eventTimeEnd = document.getElementById("post-time-end").value;
-
-  if (!title || !desc) return alert("Title and Description are required");
-
-  const roleGroups = document.querySelectorAll(".role-input-group");
-  const positions = [];
-
-  roleGroups.forEach((group) => {
-    const rName =
-      group.querySelector(".vol-role-name")?.value || "General Volunteer";
-    const rDesc = group.querySelector(".vol-role-desc")?.value || "";
-    const rSkill = group.querySelector(".vol-skill")?.value || "None";
-    const rSlots = parseInt(group.querySelector(".vol-slots")?.value) || 1;
-    const rUrgency = group.querySelector(".vol-urgency")?.value || "low";
-    positions.push({
-      roleName: rName,
-      roleDesc: rDesc,
-      skill: rSkill,
-      slots: rSlots,
-      urgency: rUrgency,
-      volunteers: [],
-    });
-  });
-
-  try {
-    await db.collection("resources").add({
-      title,
-      desc,
-      type,
-      author: currentUser.orgName || currentUser.username,
-      authorId: currentUser.uid,
-      // 1002: store org name and description for display on listing cards
-      orgName: currentUser.orgName || currentUser.username,
-      orgDescription: currentUser.details?.description || "",
-      orgWebsite: currentUser.details?.website || "",
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      positions: positions,
-      // 502: store event date and time
-      eventDate: eventDate || "",
-      eventTimeStart: eventTimeStart || "",
-      eventTimeEnd: eventTimeEnd || "",
-    });
-    alert("Published!");
-    document.getElementById("post-title").value = "";
-    document.getElementById("post-desc").value = "";
-    document.getElementById("post-date").value = "";
-    document.getElementById("post-time-start").value = "";
-    document.getElementById("post-time-end").value = "";
-    document.getElementById("volunteer-positions-container").innerHTML = "";
-    showSection("search");
-  } catch (e) {
-    alert("Error: " + e.message);
-  }
-}
-
-// --- RENDER SEARCH (502: time filtering; 1002: org info on cards) ---
-async function renderSearch() {
-  const results = document.getElementById("search-results");
-  const filterValue = document.getElementById("category-filter").value;
-
-  // 502: read time filter values
-  const filterDate = document.getElementById("date-filter").value;
-  const filterTime = document.getElementById("time-filter").value;
-
-  results.innerHTML = "Loading...";
-
-  try {
-    let query = db.collection("resources");
-    if (filterValue !== "all") {
-      query = query.where("type", "==", filterValue);
-    }
-
-    const snapshot = await query.orderBy("timestamp", "desc").get();
-    results.innerHTML = "";
-
-    // 502: apply client-side time filter after Firestore fetch
-    const docs = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      if (listingMatchesTimeFilter(data, filterDate, filterTime)) {
-        docs.push({ id: doc.id, data });
-      }
-    });
-
-    if (docs.length === 0) {
-      const msg =
-        filterDate || filterTime
-          ? `<p style="text-align:center; color:#666;">No listings found matching your date/time filter. <a href="#" onclick="clearTimeFilters(); return false;">Clear filters</a></p>`
-          : `<p style="text-align:center; color:#666;">No ${filterValue === "all" ? "" : filterValue + "s"} found.</p>`;
-      results.innerHTML = msg;
-      return;
-    }
-
-    for (const { id: docId, data: res } of docs) {
-      let rolesHTML = "";
-
-      if (res.positions && res.positions.length > 0) {
-        res.positions.forEach((pos, idx) => {
-          const filled = (pos.volunteers || []).length;
-          const isFull = filled >= pos.slots;
-          const userSigned = (pos.volunteers || []).includes(currentUser.uid);
-
-          rolesHTML += `
-            <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                  <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span></h4>
-                  <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
-                  <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
-                </div>
-                ${
-                  currentUser.role === "volunteer"
-                    ? `
-                  <button class="primary-btn" style="width:auto; padding:5px 10px;"
-                    onclick="signUpForRole('${docId}', ${idx})" ${isFull || userSigned ? "disabled" : ""}>
-                    ${userSigned ? "Joined" : isFull ? "Full" : "Join"}
-                  </button>`
-                    : ""
-                }
-              </div>
-            </div>`;
-        });
-      }
-
-      // 502: build date/time badge for the listing card
-      let timeBadgeHTML = "";
-      if (res.eventDate || res.eventTimeStart) {
-        const datePart = res.eventDate ? `📅 ${formatDate(res.eventDate)}` : "";
-        const timePart =
-          res.eventTimeStart || res.eventTimeEnd
-            ? `🕐 ${formatTimeRange(res.eventTimeStart, res.eventTimeEnd)}`
-            : "";
-        timeBadgeHTML = `
-          <div style="display:flex; gap:12px; flex-wrap:wrap; margin: 6px 0 4px; font-size:0.82em; color:#4a6580;">
-            ${datePart ? `<span>${datePart}</span>` : ""}
-            ${timePart ? `<span>${timePart}</span>` : ""}
-          </div>`;
-      }
-
-      // 1002: build org info block for the listing card
-      // Show org name, description, and a link to their website
-      const orgWebsite = res.orgWebsite || "";
-      const orgDesc = res.orgDescription || "";
-      const orgInfoHTML = `
-        <div class="org-info-block">
-          <div class="org-info-header">
-            <div class="org-avatar">${(res.orgName || res.author || "?")[0].toUpperCase()}</div>
-            <div>
-              <span class="org-info-name">${res.orgName || res.author}</span>
-              ${
-                orgWebsite
-                  ? `<a href="${orgWebsite}" target="_blank" class="org-info-link">Visit website ↗</a>`
-                  : ""
-              }
-            </div>
-          </div>
-          ${orgDesc ? `<p class="org-info-desc">${orgDesc}</p>` : ""}
-        </div>`;
-
-      results.innerHTML += `
-        <div class="resource-card">
-          <span class="tag ${res.type}">${res.type}</span>
-          <h3>${res.title}</h3>
-          <p>${res.desc}</p>
-          ${timeBadgeHTML}
-          ${rolesHTML}
-          ${orgInfoHTML}
-        </div>`;
-    }
-  } catch (e) {
-    console.error("Error filtering:", e);
-    results.innerHTML =
-      "Error loading listings. Make sure your Firestore indexes are set.";
-  }
-}
-
-async function signUpForRole(docId, roleIdx) {
-  const docRef = db.collection("resources").doc(docId);
-  try {
-    const snap = await docRef.get();
-    const positions = snap.data().positions;
-    if (!positions[roleIdx].volunteers.includes(currentUser.uid)) {
-      positions[roleIdx].volunteers.push(currentUser.uid);
-      await docRef.update({ positions: positions });
-      alert("Signed up!");
-      renderSearch();
-    }
-  } catch (e) {
-    alert("Error signing up.");
-  }
-}
-
-function toggleMenu() {
-  document.getElementById("nav-dropdown").classList.toggle("show");
-}
-
-function logout() {
-  auth.signOut().then(() => {
-    document
-      .querySelectorAll("main > section")
-      .forEach((s) => (s.style.display = "none"));
-    document.getElementById("auth-section").style.display = "block";
-    document.getElementById("main-nav").style.display = "none";
-    document.getElementById("username").value = "";
-    document.getElementById("password").value = "";
-  });
-}
-
 function toggleProfileEdit(isEditing) {
   document.getElementById("caregiver-view-mode").style.display = isEditing
     ? "none"
@@ -797,6 +538,244 @@ async function saveProfile() {
   }
 }
 
+// --- 10. CREATE LISTING ---
+function addVolunteerRoleField() {
+  roleCount++;
+  const container = document.getElementById("volunteer-positions-container");
+  const roleDiv = document.createElement("div");
+  roleDiv.className = "role-input-group";
+  roleDiv.innerHTML = `
+    <div style="border: 1px dashed #6e84a3; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; position: relative;">
+      <button type="button" onclick="this.parentElement.remove()" style="position: absolute; right: 10px; top: 10px; border: none; background: none; cursor: pointer; color: red;">✕</button>
+      <h4 style="margin: 0 0 10px 0;">Volunteer Role</h4>
+      <input type="text" class="vol-role-name" placeholder="Role Name (e.g. Driver)">
+      <textarea class="vol-role-desc" placeholder="What will they do?" rows="2"></textarea>
+      <div style="display: flex; gap: 10px;">
+        <input type="text" class="vol-skill" placeholder="Skill Required" style="flex: 2;">
+        <input type="number" class="vol-slots" placeholder="Slots" style="flex: 1;">
+      </div>
+      <label style="font-size: 0.8em;">Urgency:</label>
+      <select class="vol-urgency">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </div>`;
+  container.appendChild(roleDiv);
+}
+
+async function submitListing() {
+  const title = document.getElementById("post-title").value.trim();
+  const desc = document.getElementById("post-desc").value.trim();
+  const type = document.getElementById("post-type").value;
+  const eventDate = document.getElementById("post-date").value;
+  const eventTimeStart = document.getElementById("post-time-start").value;
+  const eventTimeEnd = document.getElementById("post-time-end").value;
+
+  if (!title || !desc) return alert("Title and Description are required");
+
+  const roleGroups = document.querySelectorAll(".role-input-group");
+  const positions = [];
+
+  roleGroups.forEach((group) => {
+    const rName =
+      group.querySelector(".vol-role-name")?.value || "General Volunteer";
+    const rDesc = group.querySelector(".vol-role-desc")?.value || "";
+    const rSkill = group.querySelector(".vol-skill")?.value || "None";
+    const rSlots = parseInt(group.querySelector(".vol-slots")?.value) || 1;
+    const rUrgency = group.querySelector(".vol-urgency")?.value || "low";
+    positions.push({
+      roleName: rName,
+      roleDesc: rDesc,
+      skill: rSkill,
+      slots: rSlots,
+      urgency: rUrgency,
+      volunteers: [],
+    });
+  });
+
+  try {
+    await db.collection("resources").add({
+      title,
+      desc,
+      type,
+      author: currentUser.orgName || currentUser.username,
+      authorId: currentUser.uid,
+      orgName: currentUser.orgName || currentUser.username,
+      orgDescription: currentUser.details?.description || "",
+      orgWebsite: currentUser.details?.website || "",
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      positions: positions,
+      eventDate: eventDate || "",
+      eventTimeStart: eventTimeStart || "",
+      eventTimeEnd: eventTimeEnd || "",
+    });
+    alert("Published!");
+    document.getElementById("post-title").value = "";
+    document.getElementById("post-desc").value = "";
+    document.getElementById("post-date").value = "";
+    document.getElementById("post-time-start").value = "";
+    document.getElementById("post-time-end").value = "";
+    document.getElementById("volunteer-positions-container").innerHTML = "";
+    showSection("search");
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+}
+
+// --- 11. SEARCH & BROWSE (301/302: skill match badges) ---
+async function renderSearch() {
+  const results = document.getElementById("search-results");
+  const filterValue = document.getElementById("category-filter").value;
+  const filterDate = document.getElementById("date-filter").value;
+  const filterTime = document.getElementById("time-filter").value;
+
+  results.innerHTML = "Loading...";
+
+  try {
+    let query = db.collection("resources");
+    if (filterValue !== "all") {
+      query = query.where("type", "==", filterValue);
+    }
+
+    const snapshot = await query.orderBy("timestamp", "desc").get();
+    results.innerHTML = "";
+
+    const docs = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (listingMatchesTimeFilter(data, filterDate, filterTime)) {
+        docs.push({ id: doc.id, data });
+      }
+    });
+
+    if (docs.length === 0) {
+      const msg =
+        filterDate || filterTime
+          ? `<p style="text-align:center; color:#666;">No listings found matching your date/time filter. <a href="#" onclick="clearTimeFilters(); return false;">Clear filters</a></p>`
+          : `<p style="text-align:center; color:#666;">No ${filterValue === "all" ? "" : filterValue + "s"} found.</p>`;
+      results.innerHTML = msg;
+      return;
+    }
+
+    for (const { id: docId, data: res } of docs) {
+      let rolesHTML = "";
+
+      if (res.positions && res.positions.length > 0) {
+        res.positions.forEach((pos, idx) => {
+          const filled = (pos.volunteers || []).length;
+          const isFull = filled >= pos.slots;
+          const userSigned = (pos.volunteers || []).includes(currentUser.uid);
+
+          // 301: skill match badge for volunteers
+          const skillRequired =
+            pos.skill && pos.skill !== "None" ? pos.skill : null;
+          const volunteerExpertise = currentUser.details?.expertise || "";
+          const isMatch =
+            skillRequired &&
+            volunteerExpertise
+              .toLowerCase()
+              .includes(skillRequired.toLowerCase());
+
+          const matchBadge =
+            currentUser.role === "volunteer" && skillRequired
+              ? `<span style="
+                  display:inline-block; margin-left:6px; font-size:0.65em; font-weight:700;
+                  padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em;
+                  background:${isMatch ? "#d1fae5" : "#f1f4f9"};
+                  color:${isMatch ? "#065f46" : "#4a6580"};">
+                  ${isMatch ? "Matches your skills" : `Needs: ${skillRequired}`}
+                </span>`
+              : skillRequired
+                ? `<span style="font-size:0.78em; color:#666; margin-left:6px;">Skill: ${skillRequired}</span>`
+                : "";
+
+          rolesHTML += `
+            <div style="background: #f1f4f9; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #6e84a3;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <h4 style="margin:0;">${pos.roleName} <span class="urgency-tag urgency-${pos.urgency}">${pos.urgency}</span>${matchBadge}</h4>
+                  <p style="font-size:0.85em; margin:2px 0;">${pos.roleDesc}</p>
+                  <p style="font-size:0.8em; color:#666;"><b>${filled} / ${pos.slots} slots filled</b></p>
+                </div>
+                ${
+                  currentUser.role === "volunteer"
+                    ? `<button class="primary-btn" style="width:auto; padding:5px 10px;"
+                        onclick="signUpForRole('${docId}', ${idx})" ${isFull || userSigned ? "disabled" : ""}>
+                        ${userSigned ? "Joined" : isFull ? "Full" : "Join"}
+                      </button>`
+                    : ""
+                }
+              </div>
+            </div>`;
+        });
+      }
+
+      // Date/time badge
+      let timeBadgeHTML = "";
+      if (res.eventDate || res.eventTimeStart) {
+        const datePart = res.eventDate ? `📅 ${formatDate(res.eventDate)}` : "";
+        const timePart =
+          res.eventTimeStart || res.eventTimeEnd
+            ? `🕐 ${formatTimeRange(res.eventTimeStart, res.eventTimeEnd)}`
+            : "";
+        timeBadgeHTML = `
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin: 6px 0 4px; font-size:0.82em; color:#4a6580;">
+            ${datePart ? `<span>${datePart}</span>` : ""}
+            ${timePart ? `<span>${timePart}</span>` : ""}
+          </div>`;
+      }
+
+      // Org info block
+      const orgWebsite = res.orgWebsite || "";
+      const orgDesc = res.orgDescription || "";
+      const orgInfoHTML = `
+        <div class="org-info-block">
+          <div class="org-info-header">
+            <div class="org-avatar">${(res.orgName || res.author || "?")[0].toUpperCase()}</div>
+            <div>
+              <span class="org-info-name">${res.orgName || res.author}</span>
+              ${orgWebsite ? `<a href="${orgWebsite}" target="_blank" class="org-info-link">Visit website ↗</a>` : ""}
+            </div>
+          </div>
+          ${orgDesc ? `<p class="org-info-desc">${orgDesc}</p>` : ""}
+        </div>`;
+
+      results.innerHTML += `
+        <div class="resource-card">
+          <span class="tag ${res.type}">${res.type}</span>
+          <h3>${res.title}</h3>
+          <p>${res.desc}</p>
+          ${timeBadgeHTML}
+          ${rolesHTML}
+          ${orgInfoHTML}
+        </div>`;
+    }
+  } catch (e) {
+    console.error("Error filtering:", e);
+    results.innerHTML =
+      "Error loading listings. Make sure your Firestore indexes are set.";
+  }
+}
+
+// --- 12. SIGN UP FOR ROLE ---
+async function signUpForRole(docId, roleIdx) {
+  const docRef = db.collection("resources").doc(docId);
+  try {
+    const snap = await docRef.get();
+    const positions = snap.data().positions;
+    if (!positions[roleIdx].volunteers.includes(currentUser.uid)) {
+      positions[roleIdx].volunteers.push(currentUser.uid);
+      await docRef.update({ positions: positions });
+      alert("Signed up!");
+      renderSearch();
+    }
+  } catch (e) {
+    alert("Error signing up.");
+  }
+}
+
+// --- 13. ORG MANAGEMENT (301: skill match on applicants) ---
 async function renderOrgManagement() {
   const container = document.getElementById("my-listings-container");
   container.innerHTML = "<p>Loading your listings...</p>";
@@ -817,8 +796,6 @@ async function renderOrgManagement() {
     for (const doc of snapshot.docs) {
       const res = doc.data();
       let rolesSectionHTML = "";
-
-      // Guard: listings created before positions feature have no positions array
       const positions = res.positions || [];
 
       for (const pos of positions) {
@@ -832,17 +809,36 @@ async function renderOrgManagement() {
               if (vDoc.exists) {
                 const vData = vDoc.data();
                 if (!vData.details) vData.details = {};
+
+                // 301: skill match indicator for org reviewing applicants
+                const vExpertise = vData.details?.expertise || "";
+                const reqSkill =
+                  pos.skill && pos.skill !== "None" ? pos.skill : null;
+                const vMatch =
+                  reqSkill &&
+                  vExpertise.toLowerCase().includes(reqSkill.toLowerCase());
+                const vMatchBadge = reqSkill
+                  ? `<span style="
+                      float:right; font-size:0.7em; font-weight:700; padding:2px 7px;
+                      border-radius:4px; text-transform:uppercase; letter-spacing:0.04em;
+                      background:${vMatch ? "#d1fae5" : "#fff7ed"};
+                      color:${vMatch ? "#065f46" : "#92400e"};">
+                      ${vMatch ? "Skill match" : "Skill gap"}
+                    </span>`
+                  : "";
+
                 volunteerListHTML += `
                   <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
-                    <strong>👤 ${vData.firstName || ""} ${vData.lastName || ""}</strong><br>
-                    <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span><br>
+                    <strong>👤 ${vData.firstName || ""} ${vData.lastName || ""}</strong>
+                    ${vMatchBadge}
+                    <br>
+                    <span style="color: #666;">Expertise: ${vExpertise || "Not specified"}</span><br>
                     <span style="color: #666;">Availability: ${formatTimeRange(vData.details?.availStart, vData.details?.availEnd)}</span>
                   </div>`;
               } else {
                 volunteerListHTML += `<p style="font-size:0.8em; color:#999;">Volunteer profile not found.</p>`;
               }
             } catch (vErr) {
-              // If we can't read a volunteer's profile (e.g. permissions), show a placeholder
               console.warn(
                 "Could not load volunteer profile:",
                 vUid,
@@ -868,7 +864,6 @@ async function renderOrgManagement() {
           "<p style='font-size: 0.85em; color: #999;'>No volunteer positions added.</p>";
       }
 
-      // Show event date/time if present
       let timeLine = "";
       if (res.eventDate || res.eventTimeStart) {
         const datePart = res.eventDate ? formatDate(res.eventDate) : "";
@@ -888,4 +883,21 @@ async function renderOrgManagement() {
     console.error("Error loading roster:", e);
     container.innerHTML = `<p style="color:#c53030;">Error: ${e.message}</p>`;
   }
+}
+
+// --- 14. NAV HELPERS ---
+function toggleMenu() {
+  document.getElementById("nav-dropdown").classList.toggle("show");
+}
+
+function logout() {
+  auth.signOut().then(() => {
+    document
+      .querySelectorAll("main > section")
+      .forEach((s) => (s.style.display = "none"));
+    document.getElementById("auth-section").style.display = "block";
+    document.getElementById("main-nav").style.display = "none";
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
+  });
 }
