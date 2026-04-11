@@ -303,9 +303,24 @@ function renderProfile() {
 
   if (currentUser.role === "org") {
     roleSpecificHTML = `
-      <p><strong>Organization:</strong> ${currentUser.orgName || "Not Set"}</p>
-      <p><strong>Website:</strong> <a href="${currentUser.details?.website || "#"}" target="_blank">${currentUser.details?.website || "No website listed"}</a></p>
-      <p><strong>Description:</strong> ${currentUser.details?.description || "No description listed"}</p>
+      <div id="org-view-mode">
+        <p><strong>Organization:</strong> ${currentUser.orgName || "Not Set"}</p>
+        <p><strong>Website:</strong> <a href="${currentUser.details?.website || "#"}" target="_blank">${currentUser.details?.website || "No website listed"}</a></p>
+        <p><strong>Description:</strong> ${currentUser.details?.description || "No description listed"}</p>
+        <button class="secondary-btn" onclick="toggleOrgEdit(true)" style="margin-top:10px;">Edit Profile Details</button>
+      </div>
+      <div id="org-edit-mode" style="display:none;">
+        <label>Organization Name:</label>
+        <input type="text" id="edit-org-name" value="${currentUser.orgName || ""}">
+        <label>Website:</label>
+        <input type="text" id="edit-org-website" value="${currentUser.details?.website || ""}">
+        <label>Description:</label>
+        <textarea id="edit-org-desc">${currentUser.details?.description || ""}</textarea>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button class="primary-btn" onclick="saveOrgProfile()">Save Changes</button>
+          <button class="secondary-btn" onclick="toggleOrgEdit(false)">Cancel</button>
+        </div>
+      </div>
     `;
   } else if (currentUser.role === "volunteer") {
     // 502: show volunteer's availability in their profile, with edit support
@@ -467,6 +482,40 @@ async function saveVolunteerProfile() {
     renderProfile();
   } catch (e) {
     console.error("Error updating volunteer profile:", e);
+    alert("Failed to update profile.");
+  }
+}
+
+function toggleOrgEdit(isEditing) {
+  document.getElementById("org-view-mode").style.display = isEditing
+    ? "none"
+    : "block";
+  document.getElementById("org-edit-mode").style.display = isEditing
+    ? "block"
+    : "none";
+}
+
+async function saveOrgProfile() {
+  const newOrgName = document.getElementById("edit-org-name").value.trim();
+  const newWebsite = document.getElementById("edit-org-website").value.trim();
+  const newDesc = document.getElementById("edit-org-desc").value.trim();
+
+  if (!newOrgName) return alert("Organization name cannot be empty");
+
+  try {
+    const userRef = db.collection("profiles").doc(currentUser.uid);
+    await userRef.update({
+      orgName: newOrgName,
+      "details.website": newWebsite,
+      "details.description": newDesc,
+    });
+    currentUser.orgName = newOrgName;
+    currentUser.details.website = newWebsite;
+    currentUser.details.description = newDesc;
+    alert("Profile updated successfully!");
+    renderProfile();
+  } catch (e) {
+    console.error("Error updating org profile:", e);
     alert("Failed to update profile.");
   }
 }
@@ -769,18 +818,38 @@ async function renderOrgManagement() {
       const res = doc.data();
       let rolesSectionHTML = "";
 
-      for (const pos of res.positions) {
+      // Guard: listings created before positions feature have no positions array
+      const positions = res.positions || [];
+
+      for (const pos of positions) {
         let volunteerListHTML = "";
-        if (pos.volunteers && pos.volunteers.length > 0) {
-          for (const vUid of pos.volunteers) {
-            const vDoc = await db.collection("profiles").doc(vUid).get();
-            const vData = vDoc.data();
-            volunteerListHTML += `
-              <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
-                <strong>👤 ${vData.firstName} ${vData.lastName}</strong><br>
-                <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span><br>
-                <span style="color: #666;">Availability: ${formatTimeRange(vData.details?.availStart, vData.details?.availEnd)}</span>
-              </div>`;
+        const volunteers = pos.volunteers || [];
+
+        if (volunteers.length > 0) {
+          for (const vUid of volunteers) {
+            try {
+              const vDoc = await db.collection("profiles").doc(vUid).get();
+              if (vDoc.exists) {
+                const vData = vDoc.data();
+                if (!vData.details) vData.details = {};
+                volunteerListHTML += `
+                  <div style="font-size: 0.9em; background: white; padding: 8px; border-radius: 4px; margin-top: 5px; border: 1px solid #eee;">
+                    <strong>👤 ${vData.firstName || ""} ${vData.lastName || ""}</strong><br>
+                    <span style="color: #666;">Expertise: ${vData.details?.expertise || "Not specified"}</span><br>
+                    <span style="color: #666;">Availability: ${formatTimeRange(vData.details?.availStart, vData.details?.availEnd)}</span>
+                  </div>`;
+              } else {
+                volunteerListHTML += `<p style="font-size:0.8em; color:#999;">Volunteer profile not found.</p>`;
+              }
+            } catch (vErr) {
+              // If we can't read a volunteer's profile (e.g. permissions), show a placeholder
+              console.warn(
+                "Could not load volunteer profile:",
+                vUid,
+                vErr.message,
+              );
+              volunteerListHTML += `<p style="font-size:0.8em; color:#999;">Volunteer info unavailable.</p>`;
+            }
           }
         } else {
           volunteerListHTML =
@@ -789,12 +858,17 @@ async function renderOrgManagement() {
 
         rolesSectionHTML += `
           <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-            <h4 style="margin: 0 0 5px 0;">${pos.roleName} (${pos.volunteers.length}/${pos.slots} filled)</h4>
+            <h4 style="margin: 0 0 5px 0;">${pos.roleName} (${volunteers.length}/${pos.slots} filled)</h4>
             ${volunteerListHTML}
           </div>`;
       }
 
-      // 502: show the event date/time on org management cards too
+      if (positions.length === 0) {
+        rolesSectionHTML =
+          "<p style='font-size: 0.85em; color: #999;'>No volunteer positions added.</p>";
+      }
+
+      // Show event date/time if present
       let timeLine = "";
       if (res.eventDate || res.eventTimeStart) {
         const datePart = res.eventDate ? formatDate(res.eventDate) : "";
@@ -812,6 +886,6 @@ async function renderOrgManagement() {
     }
   } catch (e) {
     console.error("Error loading roster:", e);
-    container.innerHTML = "<p>Error loading data. Check console.</p>";
+    container.innerHTML = `<p style="color:#c53030;">Error: ${e.message}</p>`;
   }
 }
