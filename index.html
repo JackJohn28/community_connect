@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Community Connect</title>
     <link rel="stylesheet" href="style.css" />
+
+    <script
+      src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+      defer
+    ></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function (OneSignal) {
+        await OneSignal.init({
+          appId: "78203a35-d92c-4c55-b7f1-4204883397c0",
+        });
+      });
+    </script>
   </head>
   <body>
     <header>
