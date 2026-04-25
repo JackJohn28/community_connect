@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Community Connect</title>
+    <link rel="stylesheet" href="style.css" />
+
+    <script
+      src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
+      defer
+    ></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function (OneSignal) {
+        await OneSignal.init({ appId: "78203a35-d92c-4c55-b7f1-4204883397c0" });
+      });
+    </script>
+  </head>
+  <body>
+    <!-- Toast Notification (UCN 7) -->
+    <div id="toast-notification" class="toast-notification"></div>
+
+    <header>
+      <div class="header-content">
+        <h1>Community Connect</h1>
+        <nav id="main-nav" style="display: none">
+          <!-- Notification Bell -->
+          <button
+            class="notif-bell-btn"
+            onclick="showSection('notifications')"
+            title="Notifications"
+          >
+            🔔
+            <span id="notif-badge" class="notif-badge" style="display: none"
+              >0</span
+            >
+          </button>
+          <button class="menu-btn" onclick="toggleMenu()">Menu &#9776;</button>
+          <div id="nav-dropdown" class="dropdown-content">
+            <a href="#" onclick="showSection('dashboard')">Dashboard</a>
+            <a href="#" onclick="showSection('profile')">My Profile</a>
+            <a href="#" onclick="showSection('notifications')"
+              >🔔 Notifications</a
+            >
+            <a href="#" onclick="logout()">Logout</a>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section id="auth-section">
+        <div class="card">
+          <h2 id="auth-title">Login</h2>
+          <div class="tabs">
+            <button
+              id="tab-login"
+              class="active"
+              onclick="setAuthMode('login')"
+            >
+              Login
+            </button>
+            <button id="tab-reg" onclick="setAuthMode('reg')">Register</button>
+          </div>
+
+          <input type="text" id="username" placeholder="Username" />
+          <input type="password" id="password" placeholder="Password" />
+
+          <div id="reg-fields" style="display: none">
+            <p>Select your role:</p>
+            <select id="user-role" onchange="updateRoleFields()">
+              <option value="volunteer">Volunteer</option>
+              <option value="caregiver">Caregiver</option>
+              <option value="org">Organization</option>
+            </select>
+            <div id="dynamic-questions" style="margin-top: 15px"></div>
+          </div>
+
+          <p
+            id="auth-error"
+            style="
+              color: #ff4d4d;
+              font-size: 0.9em;
+              margin-bottom: 10px;
+              display: none;
+            "
+          ></p>
+          <button id="auth-submit" class="primary-btn" onclick="handleAuth()">
+            Login
+          </button>
+        </div>
+      </section>
+
+      <section id="dashboard" style="display: none">
+        <h2 id="dash-title">Welcome</h2>
+        <div class="grid" id="action-buttons"></div>
+      </section>
+
+      <section id="create-listing" style="display: none">
+        <div class="card">
+          <h2>Create New Listing</h2>
+          <label>Category:</label>
+          <select id="post-type">
+            <option value="service">Service</option>
+            <option value="event">Event</option>
+            <option value="resource">Resource</option>
+          </select>
+          <input
+            type="text"
+            id="post-title"
+            placeholder="Name of Event / Resource"
+          />
+          <textarea
+            id="post-desc"
+            placeholder="Full Description..."
+            rows="3"
+          ></textarea>
+
+          <label>Event Date:</label>
+          <input type="date" id="post-date" />
+
+          <div style="display: flex; gap: 10px">
+            <div style="flex: 1">
+              <label>Start Time:</label>
+              <input type="time" id="post-time-start" />
+            </div>
+            <div style="flex: 1">
+              <label>End Time:</label>
+              <input type="time" id="post-time-end" />
+            </div>
+          </div>
+
+          <div id="volunteer-positions-container"></div>
+
+          <button
+            type="button"
+            class="secondary-btn"
+            onclick="addVolunteerRoleField()"
+            style="background: #6c757d; margin-bottom: 15px"
+          >
+            + Add Volunteer Position
+          </button>
+
+          <button class="primary-btn" onclick="submitListing()">
+            Publish Listing
+          </button>
+          <button class="secondary-btn" onclick="showSection('dashboard')">
+            Cancel
+          </button>
+        </div>
+      </section>
+
+      <section id="search" style="display: none">
+        <h2>Browse Listings</h2>
+
+        <div class="filter-container" style="margin-bottom: 20px">
+          <label for="category-filter">Category:</label>
+          <select id="category-filter" onchange="renderSearch()">
+            <option value="all">All Categories</option>
+            <option value="service">Service</option>
+            <option value="event">Event</option>
+            <option value="resource">Resource</option>
+          </select>
+
+          <label for="date-filter" style="margin-left: 10px">Date:</label>
+          <input
+            type="date"
+            id="date-filter"
+            onchange="renderSearch()"
+            style="flex: 1"
+          />
+
+          <label for="time-filter" style="margin-left: 10px"
+            >Available at:</label
+          >
+          <input
+            type="time"
+            id="time-filter"
+            onchange="renderSearch()"
+            style="flex: 1"
+          />
+
+          <button
+            class="secondary-btn"
+            onclick="clearTimeFilters()"
+            style="
+              width: auto;
+              padding: 6px 12px;
+              margin: 0 0 0 8px;
+              font-size: 0.8em;
+            "
+          >
+            Clear
+          </button>
+        </div>
+
+        <div id="search-results"></div>
+        <button class="secondary-btn" onclick="showSection('dashboard')">
+          Back to Dashboard
+        </button>
+      </section>
+
+      <section id="profile" style="display: none">
+        <div class="card">
+          <h2>My Profile</h2>
+          <div id="profile-display"></div>
+          <button
+            class="primary-btn"
+            onclick="showSection('dashboard')"
+            style="margin-top: 20px"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </section>
+
+      <section id="org-management" style="display: none">
+        <div class="card">
+          <h2>Manage My Listings</h2>
+          <p style="color: #666; font-size: 0.9em; margin-bottom: 20px">
+            Review your posts, update position statuses, and accept or deny
+            volunteers.
+          </p>
+          <div id="my-listings-container"></div>
+          <button
+            class="secondary-btn"
+            onclick="showSection('dashboard')"
+            style="margin-top: 20px"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </section>
+
+      <!-- UCN 7: Notifications Section -->
+      <section id="notifications" style="display: none">
+        <div class="card">
+          <h2>🔔 Notifications</h2>
+          <p style="color: #666; font-size: 0.9em; margin-bottom: 20px">
+            Updates on your volunteer applications and position status changes.
+          </p>
+          <div id="notifications-list"></div>
+          <button
+            class="secondary-btn"
+            onclick="showSection('dashboard')"
+            style="margin-top: 20px"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
