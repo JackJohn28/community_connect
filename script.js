@@ -296,13 +296,11 @@ async function renderNotifications() {
       const n = doc.data();
       const icon = iconMap[n.type] || "🔔";
       const date = n.timestamp?.toDate
-        ? n.timestamp
-            .toDate()
-            .toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })
+        ? n.timestamp.toDate().toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
         : "Just now";
 
       html += `
@@ -1123,7 +1121,14 @@ async function renderOrgManagement() {
           <h3 style="margin-top: 0;">${res.title}</h3>
           <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
           ${timeLine}
-          ${rolesSectionHTML}
+          <div id="positions-container-${doc.id}">
+            ${rolesSectionHTML}
+          </div>
+          <button class="secondary-btn"
+            style="margin-top: 14px; width: auto; padding: 7px 16px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;"
+            onclick="showAddPositionForm('${doc.id}')">
+            + Add Volunteer Position
+          </button>
         </div>`;
     }
   } catch (e) {
@@ -1187,13 +1192,11 @@ async function renderVolunteerHours() {
       const entry = doc.data();
       total += entry.hours || 0;
       const date = entry.timestamp?.toDate
-        ? entry.timestamp
-            .toDate()
-            .toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })
+        ? entry.timestamp.toDate().toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
         : "Date pending";
 
       logHTML += `
@@ -1237,4 +1240,86 @@ function logout() {
     document.getElementById("username").value = "";
     document.getElementById("password").value = "";
   });
+}
+
+// --- ADD POSITION TO EXISTING LISTING ---
+function showAddPositionForm(docId) {
+  const formId = `add-pos-form-${docId}`;
+  const existing = document.getElementById(formId);
+  if (existing) {
+    existing.style.display =
+      existing.style.display === "none" ? "block" : "none";
+    return;
+  }
+
+  const container = document.getElementById(`positions-container-${docId}`);
+  const form = document.createElement("div");
+  form.id = formId;
+  form.style.cssText = `
+    margin-top: 14px;
+    padding: 16px;
+    background: #f0f4f8;
+    border-radius: 10px;
+    border: 1.5px dashed #6e84a3;
+    animation: fadeUp 0.2s ease;
+  `;
+  form.innerHTML = `
+    <h4 style="margin: 0 0 12px; font-size: 0.9rem; color: #1a3a5c; font-weight: 600;">New Volunteer Position</h4>
+    <input type="text" id="new-role-name-${docId}" placeholder="Role Name (e.g. Driver)" style="margin-bottom: 8px;">
+    <textarea id="new-role-desc-${docId}" placeholder="What will they do?" rows="2" style="margin-bottom: 8px;"></textarea>
+    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
+      <input type="text" id="new-role-skill-${docId}" placeholder="Skill Required" style="flex: 2; margin: 0;">
+      <input type="number" id="new-role-slots-${docId}" placeholder="Slots" style="flex: 1; margin: 0;">
+    </div>
+    <label style="margin-top: 4px;">Urgency:</label>
+    <select id="new-role-urgency-${docId}" style="margin-bottom: 12px;">
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+    </select>
+    <div style="display: flex; gap: 8px;">
+      <button class="primary-btn" style="margin: 0; padding: 8px 16px; width: auto; font-size: 0.85rem;"
+        onclick="saveNewPosition('${docId}')">Save Position</button>
+      <button class="secondary-btn" style="margin: 0; padding: 8px 16px; width: auto; font-size: 0.85rem;"
+        onclick="document.getElementById('${formId}').style.display='none'">Cancel</button>
+    </div>
+  `;
+  container.appendChild(form);
+}
+
+async function saveNewPosition(docId) {
+  const roleName = document
+    .getElementById(`new-role-name-${docId}`)
+    .value.trim();
+  const roleDesc = document
+    .getElementById(`new-role-desc-${docId}`)
+    .value.trim();
+  const skill =
+    document.getElementById(`new-role-skill-${docId}`).value.trim() || "None";
+  const slots =
+    parseInt(document.getElementById(`new-role-slots-${docId}`).value) || 1;
+  const urgency = document.getElementById(`new-role-urgency-${docId}`).value;
+
+  if (!roleName) return alert("Role name is required.");
+
+  const docRef = db.collection("resources").doc(docId);
+  try {
+    const snap = await docRef.get();
+    const positions = snap.data().positions || [];
+    positions.push({
+      roleName,
+      roleDesc,
+      skill,
+      slots,
+      urgency,
+      status: "open",
+      volunteers: [],
+    });
+    await docRef.update({ positions });
+    alert(`"${roleName}" position added!`);
+    renderOrgManagement();
+  } catch (e) {
+    console.error("Error adding position:", e);
+    alert("Failed to add position: " + e.message);
+  }
 }
