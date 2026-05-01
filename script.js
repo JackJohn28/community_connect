@@ -1116,20 +1116,23 @@ async function renderOrgManagement() {
         timeLine = `<p style="font-size:0.82em; color:#4a6580; margin:2px 0;">📅 ${datePart}${datePart && timePart !== "Not specified" ? " · " : ""}${timePart !== "Not specified" ? "🕐 " + timePart : ""}</p>`;
       }
 
-      container.innerHTML += `
-        <div class="resource-card" style="border-left: 5px solid #28a745; margin-bottom: 20px;">
-          <h3 style="margin-top: 0;">${res.title}</h3>
-          <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
-          ${timeLine}
-          <div id="positions-container-${doc.id}">
-            ${rolesSectionHTML}
-          </div>
-          <button class="secondary-btn"
-            style="margin-top: 14px; width: auto; padding: 7px 16px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;"
-            onclick="showAddPositionForm('${doc.id}')">
-            + Add Volunteer Position
-          </button>
-        </div>`;
+      const card = document.createElement("div");
+      card.className = "resource-card";
+      card.style.cssText =
+        "border-left: 5px solid #28a745; margin-bottom: 20px;";
+      card.innerHTML = `
+        <h3 style="margin-top: 0;">${res.title}</h3>
+        <p style="font-size: 0.85em; color: #666;">Type: ${res.type.toUpperCase()}</p>
+        ${timeLine}
+        <div id="positions-container-${doc.id}">
+          ${rolesSectionHTML}
+        </div>
+        <button class="secondary-btn"
+          style="margin-top: 14px; width: auto; padding: 7px 16px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;"
+          onclick="showAddPositionForm('${doc.id}')">
+          + Add Volunteer Position
+        </button>`;
+      container.appendChild(card);
     }
   } catch (e) {
     console.error("Error loading roster:", e);
