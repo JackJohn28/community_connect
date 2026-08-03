@@ -1,4 +1,4 @@
 # community_connect
 CNIT 280 Project
 
-*MADE BY AI*
+*FRONT-END CODED BY AI*
